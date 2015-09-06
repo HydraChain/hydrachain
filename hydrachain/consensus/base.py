@@ -71,18 +71,15 @@ class Signed(RLPHashable):
     @property
     def sender(self):
         if not self._sender:
-            # Determine sender
             if self.v:
                 if self.r >= N or self.s >= P or self.v < 27 or self.v > 28 \
                    or self.r == 0 or self.s == 0:
-                    raise InvalidSignature("Invalid signature values!")
+                    raise InvalidSignature()
                 rlpdata = rlp.encode(self, self.__class__.exclude(['v', 'r', 's']))
                 rawhash = sha3(rlpdata)
                 pub = ecdsa_raw_recover(rawhash, (self.v, self.r, self.s))
-                if pub is False:
-                    raise InvalidSignature("Invalid signature values (x^3+7 is non-residue)")
-                if pub == (0, 0):
-                    raise InvalidSignature("Invalid signature (zero privkey cannot sign)")
+                if pub is False or pub == (0, 0):
+                    raise InvalidSignature()
                 pub = encode_pubkey(pub, 'bin')
                 self._sender = sha3(pub[1:])[-20:]
                 assert self.sender == self._sender
@@ -449,7 +446,7 @@ class VotingInstruction(Proposal):
         return self.round_lockset
 
     def __repr__(self):
-        return "<%s %r B:%s>" % (self.__class__.__name__, self.sender, phx(self.blockhash))
+        return "<%s %r B:%s>" % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
 
     def validate_votes(self, validators_H):
         "set of validators may change between heights"

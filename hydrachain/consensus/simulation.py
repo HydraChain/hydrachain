@@ -1,4 +1,5 @@
 # Copyright (c) 2015 Heiko Hees
+import time
 import simpy
 import random
 import copy
@@ -161,6 +162,12 @@ class PeerManagerMock(object):
 
 class SimChainService(ChainService):
 
+    processing_time = 0.1  # time to validate block
+
+    def __init__(self, *args, **kargs):
+        self.simenv = kargs.pop('simenv')
+        super(SimChainService, self).__init__(*args, **kargs)
+
     @property
     def now(self):
         assert self.simenv
@@ -173,6 +180,14 @@ class SimChainService(ChainService):
             yield self.simenv.timeout(delay)
             cb(*args)
         self.simenv.process(_trigger())
+
+    def on_receive_blockproposal(self, proto, proposal):
+
+        def process():
+            yield self.simenv.timeout(self.processing_time)
+            super(SimChainService, self).on_receive_blockproposal(proto, proposal)
+
+        self.simenv.process(process())
 
 
 class AppMock(object):
@@ -194,8 +209,7 @@ class AppMock(object):
         account = Account.new(password='', key=privkey)
         self.services.accounts.add_account(account, store=False)
         if simenv:
-            self.services.chainservice = SimChainService(self)
-            self.services.chainservice.env = simenv
+            self.services.chainservice = SimChainService(self, simenv=simenv)
         else:
             self.services.chainservice = hdc_service.ChainService(self)
 
@@ -217,6 +231,8 @@ class AppMock(object):
 
 
 class Network(object):
+
+    starttime = None
 
     def __init__(self, num_nodes=2, simenv=None):
         if simenv:
@@ -243,9 +259,18 @@ class Network(object):
 
     def run(self, duration):
         if self.simenv:
-            self.simenv.run(until=duration)
+            self.simenv.run(until=self.elapsed + duration)
         else:
+            if not self.starttime:
+                self.starttime = time.time()
             gevent.sleep(duration)
+
+    @property
+    def elapsed(self):
+        if self.simenv:
+            return self.simenv.now
+        else:
+            return time.time() - self.starttime
 
     def disable_validators(self, num):
         assert num <= len(self.nodes)
@@ -287,7 +312,8 @@ class Network(object):
 
         # check they are all using the same block
         while height > 0:
-            bs = list(set(c.chain.index.get_block_by_number(height) for c in cs))
+            bs = list(set(c.chain.index.get_block_by_number(height) for c in cs
+                          if c.chain.index.has_block_by_number(height)))
             assert len(bs) == 1 or (len(bs) == 2 and None in bs), bs
             height -= 1
 

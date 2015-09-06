@@ -16,7 +16,7 @@ gevent.get_hub().SYSTEM_ERROR = BaseException
 #@pytest.mark.skipif(True, reason='disabled')
 
 
-def test_basic():
+def test_basic_gevent():
     network = Network(num_nodes=10)
     network.connect_nodes()
     network.start()
