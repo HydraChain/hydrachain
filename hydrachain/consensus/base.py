@@ -114,6 +114,9 @@ class Vote(Signed):
         else:
             self.__class__ = VoteNil
 
+    def __repr__(self):
+        return '<%s(S:%s B:%s)>' % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+
     @property
     def hr(self):
         return self.height, self.round
@@ -228,7 +231,6 @@ class LockSet(RLPHashable):  # careful, is mutable!
         """
         assert self.is_valid
         bhs = self.blockhashes()
-        print 'bhs', bhs, len(bhs)
         if bhs and bhs[0][1] > 2 / 3. * self.num_eligible_votes:
             assert self.has_quorum_possible
             return bhs[0][0]
@@ -277,12 +279,22 @@ class InvalidProposal(Exception):
     pass
 
 
+class HDCBlockHeader(BlockHeader):
+
+    def check_pow(self, nonce=None):
+        return True
+
+
+class HDCBlock(Block):
+    pass
+
+
 class TransientBlock(rlp.Serializable):
 
     """A partially decoded, unvalidated block."""
 
     fields = [
-        ('header', BlockHeader),
+        ('header', HDCBlockHeader),
         ('transaction_list', rlp.sedes.CountableList(Transaction)),
         ('uncles', rlp.sedes.CountableList(BlockHeader))
     ]
@@ -292,9 +304,24 @@ class TransientBlock(rlp.Serializable):
         self.transaction_list = transaction_list
         self.uncles = uncles
 
-    def to_block(self, db, parent=None):
+    def to_block(self, env, parent=None):
         """Convert the transient block to a :class:`ethereum.blocks.Block`"""
-        return Block(self.header, self.transaction_list, self.uncles, db=db, parent=parent)
+        return Block(self.header, self.transaction_list, self.uncles, env=env, parent=parent)
+
+    @property
+    def hash(self):
+        """The binary block hash
+        This is equivalent to ``header.hash``.
+        """
+        return sha3(rlp.encode(self.header))
+
+    @property
+    def number(self):
+        return self.header.number
+
+    @property
+    def prevhash(self):
+        return self.header.prevhash
 
 
 class Proposal(Signed):
@@ -336,12 +363,12 @@ class BlockProposal(Proposal):
                                             self.round_lockset, v, r, s)
 
         if block.header.number != self.height:
-            raise InvalidProposal('lockset.height / block.height mismatch')
+            raise InvalidProposal('lockset.height / block.number mismatch')
         if self.round_lockset and height != self.round_lockset.height:
             raise InvalidProposal('height mismatch')
         if not (round > 0 or self.lockset.has_quorum):
             raise InvalidProposal('R0 lockset == signing lockset needs quorum')
-        if not (round > 0 or self.lockset.height == block.number - 1):
+        if not (round > 0 or self.lockset.height == block.header.number - 1):
             raise InvalidProposal('R0 round lockset must be from previous height')
         if not (round == 0 or round == self.lockset.round + 1):
             raise InvalidProposal('Rn round lockset must be from previous round')
@@ -362,6 +389,7 @@ class BlockProposal(Proposal):
         if not s:
             raise InvalidProposal('signature missing')
         if s != self.block.header.coinbase:
+            print s.encode('hex'), self.block.header.coinbase.encode('hex')
             raise InvalidProposal('signature does not match coinbase')
         return s
 
@@ -382,7 +410,7 @@ class BlockProposal(Proposal):
         return True
 
     def __repr__(self):
-        return "<%s %r B:%s>" % (self.__class__.__name__, self.sender, phx(self.blockhash))
+        return "<%s S:%r B:%s>" % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
 
     @property
     def blockhash(self):

@@ -107,7 +107,7 @@ class HDCProtocol(BaseProtocol):
         Specify a single BlockProposal that the peer should know about.
         """
         cmd_id = 4
-        structure = [('block', BlockProposal)]
+        structure = [('proposal', BlockProposal)]
 
     class votinginstruction(BaseProtocol.command):
 
