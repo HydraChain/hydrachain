@@ -1,7 +1,7 @@
 # Copyright (c) 2015 Heiko Hees
 from base import LockSet, Vote, VoteBlock, VoteNil, Signed
-from base import BlockProposal, VotingInstruction, DoubleVotingError
-from base import TransientBlock, Block, Proposal, HDCBlockHeader
+from base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
+from base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
 from utils import cstr, phx
 from ethereum.slogging import get_logger
 log = get_logger('hdc.consensus')
@@ -81,23 +81,29 @@ class ConsensusContract(object):
         return len(self.validators)
 
 
-class TrackedProtocolFailure(object):
+class ProtocolFailureEvidence(object):
     pass
 
 
-class InvalidProposal(TrackedProtocolFailure):
+class InvalidProposalEvidence(ProtocolFailureEvidence):
 
     def __init__(self, proposal):
         self.evidence = proposal
 
 
-class DoubleVoting(TrackedProtocolFailure):
+class DoubleVotingEvidence(ProtocolFailureEvidence):
 
     def __init__(self, vote, othervote):
         self.evidence = (vote, othervote)
 
 
-class FailedToPropose(TrackedProtocolFailure):
+class InvalidVoteEvidence(ProtocolFailureEvidence):
+
+    def __init__(self, vote):
+        self.evidence = vote
+
+
+class FailedToProposeEvidence(ProtocolFailureEvidence):
 
     def __init__(self, round_lockset):
         self.evidence = round_lockset
@@ -167,8 +173,6 @@ class ConsensusManager(object):
         t = int(self.chainservice.now)
         c = lambda x: cstr(self.coinbase, x)
         msg = ' '.join([str(t), c(repr(self)),  tag, (' %r' % kargs if kargs else '')])
-        if self.stopped:
-            msg = 'X' + msg
         log.debug(msg)
 
     @property
@@ -195,23 +199,27 @@ class ConsensusManager(object):
         # exception for externaly received votes signed by self, necessary for resyncing
         is_own_vote = bool(v.sender == self.coinbase)
         try:
-            self.heights[v.height].add_vote(v, force_replace=is_own_vote)
+            success = self.heights[v.height].add_vote(v, force_replace=is_own_vote)
         except DoubleVotingError:
             ls = self.heights[v.height].rounds[v.round].lockset
-            self.tracked_protocol_failures.append(DoubleVoting(v, ls))
+            self.tracked_protocol_failures.append(DoubleVotingEvidence(v, ls))
             log.warn('double voting detected', vote=v, ls=ls)
+        return success
 
     def add_proposal(self, p):
-        assert isinstance(p, Proposal)
-
         def check(valid):
             if not valid:
-                self.tracked_protocol_failures.append(InvalidProposal(p))
+                self.tracked_protocol_failures.append(InvalidProposalEvidence(p))
                 log.warn('invalid proposal', p=p)
-                raise InvalidProposal()
+                raise InvalidProposalError()
             return True
 
+        assert isinstance(p, Proposal)
         self.log('cm.add_proposal', p=p)
+        if p.height < self.height:
+            self.log('proposal from the past')
+            return
+
         if not check(self.contract.isvalidator(p.sender) and self.contract.isproposer(p)):
             return
         if not check(p.lockset.is_valid):
@@ -227,17 +235,21 @@ class ConsensusManager(object):
                 return
             if not check(p.lockset.has_noquorum or p.round == 0):
                 return
-            # validation!
+            # validation
+            if p.height > self.height:
+                self.log('proposal from the future, not in sync FIXME')
+                return
             blk = self.chainservice.link_block(p.block)
             if not check(blk):
                 return
-            p.block = blk
+            p.block = blk  # block linked to chain
             self.add_block_proposal(p)  # implicitly checks the votes validity
         else:
             assert isinstance(p, VotingInstruction)
             if not check(p.lockset.has_quorum_possible):
                 return
-        self.heights[p.height].add_proposal(p)
+        is_valid = self.heights[p.height].add_proposal(p)
+        return is_valid  # can be broadcasted
 
     def add_block_proposal(self, p):
         assert isinstance(p, BlockProposal)
@@ -377,14 +389,14 @@ class HeightManager(object):
             return ls.has_quorum
 
     def add_vote(self, v, force_replace=False):
-        self.rounds[v.round].add_vote(v, force_replace)
+        return self.rounds[v.round].add_vote(v, force_replace)
 
     def add_proposal(self, p):
         assert p.height == self.height
         assert p.lockset.is_valid
         if p.round > self.round:
             self.round = p.round
-        self.rounds[p.round].add_proposal(p)
+        return self.rounds[p.round].add_proposal(p)
 
     def process(self):
         self.log('in hm.process', height=self.height)
@@ -422,10 +434,15 @@ class RoundManager(object):
 
     def add_vote(self, v, force_replace=False):
         self.log('rm.adding', vote=v, proposal=self.proposal, pid=id(self.proposal))
-        self.lockset.add(v, force_replace)
+        try:
+            success = self.lockset.add(v, force_replace)
+        except InvalidVoteError:
+            self.cm.tracked_protocol_failures.append(InvalidVoteEvidence(v))
+            return
         # report failed proposer
-        if self.lockset.is_valid and not self.proposal and self.has_noquorum:
-            self.cm.tracked_protocol_failures.append(FailedToPropose(self.lockset))
+        if self.lockset.is_valid and not self.proposal and self.lockset.has_noquorum:
+            self.cm.tracked_protocol_failures.append(FailedToProposeEvidence(self.lockset))
+        return success
 
     def add_proposal(self, p):
         self.log('rm.adding', proposal=p, old=self.proposal)
@@ -433,15 +450,13 @@ class RoundManager(object):
         assert isinstance(p, VotingInstruction) or isinstance(p.block, Block)  # already linked
         assert not self.proposal
         self.proposal = p
+        return True
 
     def process(self):
         self.log('in rm.process', height=self.hm.height, round=self.round)
 
         assert self.cm.round == self.round
         assert self.cm.height == self.hm.height == self.height
-        if self.cm.stopped:
-            self.log('stopped not creating proposal')
-            return
         p = self.propose()
         if isinstance(p, BlockProposal):
             self.cm.add_block_proposal(p)

@@ -208,8 +208,9 @@ class ChainService(eth_ChainService):
         assert isinstance(t_block.header, HDCBlockHeader)
         self.add_transaction_lock.acquire()
         block = self._link_block(t_block)
-        assert block
-        assert block.get_parent() == self.chain.head
+        if not block:
+            return
+        assert block.get_parent() == self.chain.head, (block.get_parent(), self.chain.head)
         assert block.header.coinbase == t_block.header.coinbase
         self.add_transaction_lock.release()
         return block

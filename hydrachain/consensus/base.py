@@ -129,11 +129,11 @@ class VoteNil(Vote):
 
 # LockSets
 
-class InvalidVote(Exception):
+class InvalidVoteError(Exception):
     pass
 
 
-class DoubleVotingError(InvalidVote):
+class DoubleVotingError(InvalidVoteError):
     pass
 
 
@@ -178,10 +178,10 @@ class LockSet(RLPHashable):  # careful, is mutable!
     def add(self, vote, force_replace=False):
         assert isinstance(vote, Vote)
         if not vote.sender:
-            raise InvalidVote('no signature')
+            raise InvalidVoteError('no signature')
         if vote not in self.votes:
             if len(self) and self.hr != vote.hr:
-                raise InvalidVote('inconsistent height, round')
+                raise InvalidVoteError('inconsistent height, round')
             signee = self.signee
             if vote.sender in signee:
                 if not force_replace:
@@ -272,7 +272,7 @@ def genesis_signing_lockset(genesis, privkey):
     return ls
 
 
-class InvalidProposal(Exception):
+class InvalidProposalError(Exception):
     pass
 
 
@@ -347,9 +347,9 @@ class BlockProposal(Proposal):
         assert round >= 0
         assert height > 0
         if round > 0 and not round_lockset:
-            raise InvalidProposal('R>0 needs a round lockset')
+            raise InvalidProposalError('R>0 needs a round lockset')
         if round == 0 and round_lockset:
-            raise InvalidProposal('R0 must not have a round lockset')
+            raise InvalidProposalError('R0 must not have a round lockset')
         self.height = height
         self.round = round
         self.block = block
@@ -360,21 +360,21 @@ class BlockProposal(Proposal):
                                             self.round_lockset, v, r, s)
 
         if block.header.number != self.height:
-            raise InvalidProposal('lockset.height / block.number mismatch')
+            raise InvalidProposalError('lockset.height / block.number mismatch')
         if self.round_lockset and height != self.round_lockset.height:
-            raise InvalidProposal('height mismatch')
+            raise InvalidProposalError('height mismatch')
         if not (round > 0 or self.lockset.has_quorum):
-            raise InvalidProposal('R0 lockset == signing lockset needs quorum')
+            raise InvalidProposalError('R0 lockset == signing lockset needs quorum')
         if not (round > 0 or self.lockset.height == block.header.number - 1):
-            raise InvalidProposal('R0 round lockset must be from previous height')
+            raise InvalidProposalError('R0 round lockset must be from previous height')
         if not (round == 0 or round == self.lockset.round + 1):
-            raise InvalidProposal('Rn round lockset must be from previous round')
+            raise InvalidProposalError('Rn round lockset must be from previous round')
         if not self.signing_lockset.has_quorum:
-            raise InvalidProposal('signing lockset needs quorum')
+            raise InvalidProposalError('signing lockset needs quorum')
         if not (self.signing_lockset.height == self.height - 1):
-            raise InvalidProposal('signing lockset height mismatch')
+            raise InvalidProposalError('signing lockset height mismatch')
         if self.round_lockset and not round_lockset.has_noquorum:
-            raise InvalidProposal('at R>0 can only propose if there is a NoQuorum for R-1')
+            raise InvalidProposalError('at R>0 can only propose if there is a NoQuorum for R-1')
 
     @property
     def lockset(self):
@@ -384,10 +384,10 @@ class BlockProposal(Proposal):
     def sender(self):
         s = super(BlockProposal, self).sender
         if not s:
-            raise InvalidProposal('signature missing')
+            raise InvalidProposalError('signature missing')
         if s != self.block.header.coinbase:
             print s.encode('hex'), self.block.header.coinbase.encode('hex')
-            raise InvalidProposal('signature does not match coinbase')
+            raise InvalidProposalError('signature does not match coinbase')
         return s
 
     def validate_votes(self, validators_H, validators_prevH):
@@ -396,10 +396,10 @@ class BlockProposal(Proposal):
 
         def check(lockset, validators):
             if not lockset.num_eligible_votes == len(validators):
-                raise InvalidProposal('lockset num_eligible_votes mismatch')
+                raise InvalidProposalError('lockset num_eligible_votes mismatch')
             for v in lockset:
                 if v.sender not in validators:
-                    raise InvalidProposal('invalid signer')
+                    raise InvalidProposalError('invalid signer')
         if self.round_lockset:
             check(self.round_lockset, validators_H)
         check(self.signing_lockset, validators_prevH)
@@ -425,15 +425,15 @@ class VotingInstruction(Proposal):
     def __init__(self, height, round, round_lockset, v=0, r=0, s=0):
         super(VotingInstruction, self).__init__(height, round, round_lockset, v, r, s)
         if not round > 0:
-            raise InvalidProposal('VotingInstructions must have R>0')
+            raise InvalidProposalError('VotingInstructions must have R>0')
         if not self.lockset.has_quorum_possible:
-            raise InvalidProposal('VotingInstruction requires quorum possible')
+            raise InvalidProposalError('VotingInstruction requires quorum possible')
         if not (round == self.lockset.round + 1):
-            raise InvalidProposal('Rn round lockset must be from previous round')
+            raise InvalidProposalError('Rn round lockset must be from previous round')
         if not (height == self.lockset.height):
-            raise InvalidProposal('height mismatch')
+            raise InvalidProposalError('height mismatch')
         if not round > 0:
-            raise InvalidProposal('VotingInstructions must have R>0')
+            raise InvalidProposalError('VotingInstructions must have R>0')
         assert round == round_lockset.round + 1
         assert height == round_lockset.height
 
@@ -452,10 +452,10 @@ class VotingInstruction(Proposal):
         "set of validators may change between heights"
         assert self.sender
         if not self.round_lockset.num_eligible_votes == len(validators_H):
-            raise InvalidProposal('round_lockset num_eligible_votes mismatch')
+            raise InvalidProposalError('round_lockset num_eligible_votes mismatch')
         for v in self.round_lockset:
             if v.sender not in validators_H:
-                raise InvalidProposal('invalid signer')
+                raise InvalidProposalError('invalid signer')
 
 
 #########################
