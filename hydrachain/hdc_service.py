@@ -307,10 +307,8 @@ class ChainService(eth_ChainService):
         # self.synchronizer.receive_newproposal(proto, proposal)
         assert isinstance(proposal, BlockProposal)
         assert isinstance(proposal.block.header, HDCBlockHeader)
-        st = time.time()
         self.consensus_manager.add_proposal(proposal)
         self.consensus_manager.process()
-        #assert time.time() - st < 0.1
 
     def on_receive_votinginstruction(self, proto, votinginstruction):
         log.debug('----------------------------------')

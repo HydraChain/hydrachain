@@ -407,7 +407,8 @@ class BlockProposal(Proposal):
         return True
 
     def __repr__(self):
-        return "<%s S:%r B:%s>" % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+        return "<%s S:%r H:%d B:%s>" % (self.__class__.__name__, phx(self.sender),
+                                        self.height, phx(self.blockhash))
 
     @property
     def blockhash(self):

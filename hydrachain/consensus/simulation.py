@@ -53,10 +53,6 @@ class Transport(object):
 
     def __init__(self, simenv=None):
         self.simenv = simenv
-        if simenv:
-            self.deliver = self.simenv_deliver
-        else:
-            self.deliver = self.gevent_deliver
 
     def delay(self, sender, receiver, packet, add_delay=0):
         """
@@ -67,6 +63,12 @@ class Transport(object):
         delay += len(packet) / bw
         delay += add_delay
         return delay
+
+    def deliver(self, sender, receiver, packet, add_delay=0):
+        if self.simenv:
+            self.simenv_deliver(sender, receiver, packet, add_delay)
+        else:
+            self.gevent_deliver(sender, receiver, packet, add_delay)
 
     def gevent_deliver(self, sender, receiver, packet, add_delay=0):
         assert sender != receiver
@@ -88,15 +90,16 @@ class NoTransport(Transport):
 
     def deliver(self, sender, receiver, packet):
         pass
-    simenv_deliver = gevent_deliver = deliver
 
 
 class SlowTransport(Transport):
 
     def deliver(self, sender, receiver, packet):
         "deliver on edge of timeout_window"
-        to = sender.services.chainservice.consensus_manager.active_round.timeout
-        Transport.deliver(self, sender, receiver, packet, add_delay=to)
+        to = sender.app.services.chainservice.consensus_manager.active_round.timeout
+        assert to > 0
+        print "in slow transport deliver"
+        super(SlowTransport, self).deliver(sender, receiver, packet, add_delay=to)
 
 
 class PeerMock(object):
@@ -129,10 +132,17 @@ class PeerMock(object):
         self.transport.deliver(self, self.peer, packet)
 
     def receive_packet(self, sender, packet):
+        assert self.app.isactive
         assert sender != self
         log.debug('receive_packet', sender=sender, receiver=self)
         self.ingress_bytes += len(packet)
         self.protocol.receive_packet(packet)
+
+    def __eq__(self, other):
+        return repr(self) == repr(other)
+
+    def __hash__(self):
+        return hash(repr(self))
 
 
 class PeerManagerMock(object):
@@ -212,22 +222,30 @@ class AppMock(object):
             self.services.chainservice = SimChainService(self, simenv=simenv)
         else:
             self.services.chainservice = hdc_service.ChainService(self)
+        self.isactive = True
+
+    def __repr__(self):
+        return '<AppMock(%s)>' % phx(self.services.chainservice.chain.coinbase)
 
     def add_peer(self, peer):
+        if peer in self.services.peermanager.peers:
+            return
         self.services.peermanager.peers.append(peer)
         proto = hdc_protocol.HDCProtocol(peer, self.services.chainservice)
         peer.protocol = proto
+        return True
 
     def connect_app(self, other):
+        log.DEV('connecting', node=self, other=other)
         transport = Transport(self.simenv)
         p = PeerMock(self, transport)
         op = PeerMock(other, transport)
         p.peer = op
         op.peer = p
-        self.add_peer(p)
-        other.add_peer(op)
-        self.services.chainservice.on_wire_protocol_start(p.protocol)
-        other.services.chainservice.on_wire_protocol_start(op.protocol)
+        if self.add_peer(p):
+            self.services.chainservice.on_wire_protocol_start(p.protocol)
+        if other.add_peer(op):
+            other.services.chainservice.on_wire_protocol_start(op.protocol)
 
 
 class Network(object):
@@ -250,12 +268,14 @@ class Network(object):
         # connect nodes
         for i, n in enumerate(self.nodes):
             for o in self.nodes[i + 1:]:
-                n.connect_app(o)
+                if n.isactive and o.isactive:
+                    n.connect_app(o)
 
     def start(self):
         # start nodes
         for n in self.nodes:
-            n.services.chainservice.consensus_manager.process()
+            if n.isactive:
+                n.services.chainservice.consensus_manager.process()
 
     def run(self, duration):
         if self.simenv:
