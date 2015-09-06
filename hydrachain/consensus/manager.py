@@ -1,6 +1,6 @@
 # Copyright (c) 2015 Heiko Hees
 from base import LockSet, Vote, VoteBlock, VoteNil, Signed
-from base import BlockProposal, VotingInstruction
+from base import BlockProposal, VotingInstruction, DoubleVotingError
 from base import TransientBlock, Block, Proposal, HDCBlockHeader
 from utils import cstr, phx
 from ethereum.slogging import get_logger
@@ -81,6 +81,28 @@ class ConsensusContract(object):
         return len(self.validators)
 
 
+class TrackedProtocolFailure(object):
+    pass
+
+
+class InvalidProposal(TrackedProtocolFailure):
+
+    def __init__(self, proposal):
+        self.evidence = proposal
+
+
+class DoubleVoting(TrackedProtocolFailure):
+
+    def __init__(self, vote, othervote):
+        self.evidence = (vote, othervote)
+
+
+class FailedToPropose(TrackedProtocolFailure):
+
+    def __init__(self, round_lockset):
+        self.evidence = round_lockset
+
+
 class ConsensusManager(object):
 
     def __init__(self, chainservice, consensus_contract, privkey):
@@ -93,10 +115,7 @@ class ConsensusManager(object):
         self.heights = ManagerDict(HeightManager, self)
         self.block_candidates = dict()  # blockhash : BlockProposal
 
-        # debug
-        self.messages_received = []
-        self.messages_sent = []
-        self.stopped = False
+        self.tracked_protocol_failures = list()
 
         # sign genesis
         if self.head.number == 0:
@@ -175,31 +194,49 @@ class ConsensusManager(object):
         assert self.contract.isvalidator(v.sender)
         # exception for externaly received votes signed by self, necessary for resyncing
         is_own_vote = bool(v.sender == self.coinbase)
-        self.heights[v.height].add_vote(v, force_replace=is_own_vote)
+        try:
+            self.heights[v.height].add_vote(v, force_replace=is_own_vote)
+        except DoubleVotingError:
+            ls = self.heights[v.height].rounds[v.round].lockset
+            self.tracked_protocol_failures.append(DoubleVoting(v, ls))
+            log.warn('double voting detected', vote=v, ls=ls)
 
     def add_proposal(self, p):
         assert isinstance(p, Proposal)
+
+        def check(valid):
+            if not valid:
+                self.tracked_protocol_failures.append(InvalidProposal(p))
+                log.warn('invalid proposal', p=p)
+                raise InvalidProposal()
+            return True
+
         self.log('cm.add_proposal', p=p)
-        assert self.contract.isvalidator(p.sender)
-        assert self.contract.isproposer(p)
-        assert p.lockset.is_valid
-        assert p.lockset.height == p.height or p.round == 0
-        assert p.height == p.height
-        assert p.round == p.round
-        assert p.round - p.lockset.round == 1 or p.round == 0
+        if not check(self.contract.isvalidator(p.sender) and self.contract.isproposer(p)):
+            return
+        if not check(p.lockset.is_valid):
+            return
+        if not check(p.lockset.height == p.height or p.round == 0):
+            return
+        if not check(p.round - p.lockset.round == 1 or p.round == 0):
+            return
         for v in p.lockset:
             self.add_vote(v)  # implicitly checks their validity
         if isinstance(p, BlockProposal):
-            assert p.block.number == p.height
-            assert p.lockset.has_noquorum or p.round == 0
+            if not check(p.block.number == p.height):
+                return
+            if not check(p.lockset.has_noquorum or p.round == 0):
+                return
             # validation!
             blk = self.chainservice.link_block(p.block)
-            assert blk
+            if not check(blk):
+                return
             p.block = blk
             self.add_block_proposal(p)  # implicitly checks the votes validity
         else:
             assert isinstance(p, VotingInstruction)
-            assert p.lockset.has_quorum_possible
+            if not check(p.lockset.has_quorum_possible):
+                return
         self.heights[p.height].add_proposal(p)
 
     def add_block_proposal(self, p):
@@ -253,6 +290,9 @@ class ConsensusManager(object):
         self.cleanup()
         # self.synchronizer.process()
         self.setup_alarm()
+
+        for f in self.tracked_protocol_failures:
+            log.warn('protocol failure', incident=f)
 
     start = process
 
@@ -383,6 +423,9 @@ class RoundManager(object):
     def add_vote(self, v, force_replace=False):
         self.log('rm.adding', vote=v, proposal=self.proposal, pid=id(self.proposal))
         self.lockset.add(v, force_replace)
+        # report failed proposer
+        if self.lockset.is_valid and not self.proposal and self.has_noquorum:
+            self.cm.tracked_protocol_failures.append(FailedToPropose(self.lockset))
 
     def add_proposal(self, p):
         self.log('rm.adding', proposal=p, old=self.proposal)
