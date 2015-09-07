@@ -1,4 +1,5 @@
 # Copyright (c) 2015 Heiko Hees
+import rlp
 from base import LockSet, Vote, VoteBlock, VoteNil, Signed
 from base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
 from base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
@@ -275,6 +276,15 @@ class ConsensusManager(object):
         return self.heights[self.height].last_lock
 
     @property
+    def last_blockproposal(self):
+        # valid block proposal on currrent height
+        p = self.heights[self.height].last_voted_blockproposal
+        if p:
+            return p
+        elif self.height > 1:  # or last block
+            return self.get_blockproposal(self.head.hash)
+
+    @property
     def active_round(self):
         hm = self.heights[self.height]
         return hm.rounds[hm.round]
@@ -363,6 +373,15 @@ class HeightManager(object):
                 return self.rounds[r].lock
 
     @property
+    def last_voted_blockproposal(self):
+        "the last block proposal node voted on"
+        for r in reversed(sorted(self.rounds)):
+            if isinstance(self.rounds[r].proposal, BlockProposal):
+                assert isinstance(self.rounds[r].lock, Vote)
+                if self.rounds[r].proposal.blockhash == self.rounds[r].lock.blockhash:
+                    return self.rounds[r].proposal
+
+    @property
     def last_valid_lockset(self):
         "highest valid lockset on height"
         for r in reversed(sorted(self.rounds)):
@@ -448,7 +467,7 @@ class RoundManager(object):
         self.log('rm.adding', proposal=p, old=self.proposal)
         assert isinstance(p, Proposal)
         assert isinstance(p, VotingInstruction) or isinstance(p.block, Block)  # already linked
-        assert not self.proposal
+        assert not self.proposal or self.proposal == p
         self.proposal = p
         return True
 
@@ -468,9 +487,9 @@ class RoundManager(object):
         assert not self.proposal or self.lock
 
     def mk_proposal(self, round_lockset=None):
-        signing_lockset = self.cm.last_committing_lockset  # quorum which signs prev block
+        signing_lockset = self.cm.last_committing_lockset.copy()  # quorum which signs prev block
         if self.round > 0:
-            round_lockset = self.cm.last_valid_lockset
+            round_lockset = self.cm.last_valid_lockset.copy()
             assert round_lockset.has_noquorum
         else:
             round_lockset = None
@@ -499,7 +518,7 @@ class RoundManager(object):
         if self.round == 0 or round_lockset.has_noquorum:
             proposal = self.mk_proposal()
         elif round_lockset.has_quorum_possible:
-            proposal = VotingInstruction(self.height, self.round, round_lockset)
+            proposal = VotingInstruction(self.height, self.round, round_lockset.copy())
             self.cm.sign(proposal)
         else:
             raise Exception('invalid round_lockset')

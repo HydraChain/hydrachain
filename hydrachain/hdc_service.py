@@ -303,6 +303,7 @@ class ChainService(eth_ChainService):
 
     def on_receive_blockproposal(self, proto, proposal):
         log.debug('----------------------------------')
+        self.consensus_manager.log('receive proposal', sender=proto)
         log.debug("recv newproposal", proposal=proposal, remote_id=proto)
         # self.synchronizer.receive_newproposal(proto, proposal)
         assert isinstance(proposal, BlockProposal)

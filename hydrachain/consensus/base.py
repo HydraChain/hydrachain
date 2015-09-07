@@ -57,10 +57,10 @@ class Signed(RLPHashable):
         super(Signed, self).__init__(*args, **kargs)
 
     def sign(self, privkey):
-        """Sign this with a private key.
+        """Sign this with a private key"""
+        if self.v:
+            raise InvalidSignature("already signed")
 
-        A potentially already existing signature would be overridden.
-        """
         if privkey in (0, '', '\x00' * 32):
             raise InvalidSignature("Zero privkey cannot sign")
         rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
@@ -71,21 +71,21 @@ class Signed(RLPHashable):
     @property
     def sender(self):
         if not self._sender:
-            if self.v:
-                if self.r >= N or self.s >= P or self.v < 27 or self.v > 28 \
-                   or self.r == 0 or self.s == 0:
-                    raise InvalidSignature()
-                rlpdata = rlp.encode(self, self.__class__.exclude(['v', 'r', 's']))
-                rawhash = sha3(rlpdata)
-                pub = ecdsa_raw_recover(rawhash, (self.v, self.r, self.s))
-                if pub is False or pub == (0, 0):
-                    raise InvalidSignature()
-                pub = encode_pubkey(pub, 'bin')
-                self._sender = sha3(pub[1:])[-20:]
-                assert self.sender == self._sender
-            else:
-                self._sender = None
+            self._sender = self.recover_sender()
         return self._sender
+
+    def recover_sender(self):
+        if self.v:
+            if self.r >= N or self.s >= P or self.v < 27 or self.v > 28 \
+               or self.r == 0 or self.s == 0:
+                raise InvalidSignature()
+            rlpdata = rlp.encode(self, self.__class__.exclude(['v', 'r', 's']))
+            rawhash = sha3(rlpdata)
+            pub = ecdsa_raw_recover(rawhash, (self.v, self.r, self.s))
+            if pub is False or pub == (0, 0):
+                raise InvalidSignature()
+            pub = encode_pubkey(pub, 'bin')
+            return sha3(pub[1:])[-20:]
 
 
 # Votes
@@ -379,19 +379,32 @@ class BlockProposal(Proposal):
         if self.round_lockset and not round_lockset.has_noquorum:
             raise InvalidProposalError('at R>0 can only propose if there is a NoQuorum for R-1')
 
+        self.rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
+        if self.v:  # validate sender == block.coinbase
+            assert self.sender
+
     @property
     def lockset(self):
         return self.round_lockset or self.signing_lockset
 
     @property
     def sender(self):
+        # double check unmutable
+        assert self.rawhash == sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
+
         s = super(BlockProposal, self).sender
         if not s:
             raise InvalidProposalError('signature missing')
+        assert len(s) == 20
+        assert len(self.block.header.coinbase) == 20
         if s != self.block.header.coinbase:
-            print s.encode('hex'), self.block.header.coinbase.encode('hex')
             raise InvalidProposalError('signature does not match coinbase')
         return s
+
+    def sign(self, privkey):
+        super(BlockProposal, self).sign(privkey)
+        if self.sender != self.block.header.coinbase:
+            raise InvalidProposalError('signature does not match coinbase')
 
     def validate_votes(self, validators_H, validators_prevH):
         "set of validators may change between heights"
@@ -410,7 +423,7 @@ class BlockProposal(Proposal):
         return True
 
     def __repr__(self):
-        return "<%s S:%r H:%d B:%s>" % (self.__class__.__name__, phx(self.sender),
+        return "<%s S:%r H:%d B:%s>" % (self.__class__.__name__, phx(self._sender),
                                         self.height, phx(self.blockhash))
 
     @property
