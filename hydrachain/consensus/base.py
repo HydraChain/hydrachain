@@ -169,11 +169,14 @@ class LockSet(RLPHashable):  # careful, is mutable!
             s = 'P'
         elif self.has_noquorum:
             s = 'N'
-        assert s
+        else:
+            raise Exception('no valid state')
         return '%s:%d' % (s, len(self))
 
     def __repr__(self):
-        return '<LockSet(%s H:%d R:%d)>' % (self.state, self.height, self.round)
+        if self.votes:
+            return '<LockSet(%s H:%d R:%d)>' % (self.state, self.height, self.round)
+        return '<LockSet(I:0)>'
 
     def add(self, vote, force_replace=False):
         assert isinstance(vote, Vote)
@@ -240,7 +243,7 @@ class LockSet(RLPHashable):  # careful, is mutable!
         """
         assert self.is_valid
         bhs = self.blockhashes()
-        if not bhs or bhs[0][1] < 1 / 3. * self.num_eligible_votes:
+        if not bhs or bhs[0][1] <= 1 / 3. * self.num_eligible_votes:
             assert not self.has_quorum_possible
             return True
 

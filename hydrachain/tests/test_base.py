@@ -1,7 +1,7 @@
 # from hydrachain import protocol
 from hydrachain.consensus.base import Vote, VoteBlock, VoteNil, LockSet, ishash
-from hydrachain.consensus.base import DoubleVotingError, InvalidVote
-from hydrachain.consensus.base import BlockProposal, genesis_signing_lockset, InvalidProposal
+from hydrachain.consensus.base import DoubleVotingError, InvalidVoteError
+from hydrachain.consensus.base import BlockProposal, genesis_signing_lockset, InvalidProposalError
 from hydrachain.consensus.base import Proposal, VotingInstruction
 
 from ethereum import utils, tester
@@ -72,7 +72,7 @@ def test_LockSet():
     v1 = VoteBlock(h, r, bh)
 
     # add not signed
-    with pytest.raises(InvalidVote):
+    with pytest.raises(InvalidVoteError):
         ls.add(v1)
     assert not ls
     assert v1 not in ls
@@ -110,7 +110,7 @@ def test_LockSet():
     # vote wrong round
     v4 = VoteBlock(h, r + 1, bh)
     v4.sign(privkeys[2])
-    with pytest.raises(InvalidVote):
+    with pytest.raises(InvalidVoteError):
         ls.add(v4)
     assert lsh == ls.hash
     assert len(ls) == 2
@@ -151,6 +151,24 @@ def test_LockSet_isvalid():
         else:
             assert ls.is_valid
             assert ls.has_quorum  # same blockhash
+
+
+def test_LockSet_3_quorums():
+    ls = LockSet(3)
+    v = VoteBlock(0, 0, '0' * 32)
+    v.sign(privkeys[0])
+    ls.add(v)
+    v = VoteNil(0, 0)
+    v.sign(privkeys[1])
+    ls.add(v)
+    assert not ls.is_valid
+    v = VoteNil(0, 0)
+    v.sign(privkeys[2])
+    ls.add(v)
+    assert ls.is_valid
+    assert ls.has_noquorum
+    assert not ls.has_quorum
+    assert not ls.has_quorum_possible
 
 
 def test_LockSet_quorums():
@@ -224,7 +242,7 @@ def test_blockproposal():
     assert isinstance(bp, Proposal)
     bp.sign(tester.k0)
 
-    with pytest.raises(InvalidProposal):  # round >0 needs round_lockset
+    with pytest.raises(InvalidProposalError):  # round >0 needs round_lockset
         bp = BlockProposal(height=1, round=1, block=blk1, signing_lockset=gls, round_lockset=None)
     bp.validate_votes(validators, validators[:1])
 
@@ -241,17 +259,17 @@ def test_blockproposal():
 
     bp = BlockProposal(height=2, round=0, block=blk2, signing_lockset=ls, round_lockset=None)
     assert bp.lockset == ls
-    with pytest.raises(InvalidProposal):  # signature missing
+    with pytest.raises(InvalidProposalError):  # signature missing
         bp.validate_votes(validators, validators)
 
     bp.sign(privkeys[0])
-    with pytest.raises(InvalidProposal):  # round >0 needs round_lockset
+    with pytest.raises(InvalidProposalError):  # round >0 needs round_lockset
         bp.validate_votes(validators, validators)
 
     bp.sign(tester.k0)
     bp.validate_votes(validators, validators)
 
-    with pytest.raises(InvalidProposal):  # round >0 needs round_lockset
+    with pytest.raises(InvalidProposalError):  # round >0 needs round_lockset
         bp = BlockProposal(height=2, round=1, block=blk2, signing_lockset=gls, round_lockset=None)
 
     # block 2 round 1, timeout in round=0
@@ -283,7 +301,7 @@ def test_blockproposal():
         rls.add(v)
     assert not rls.has_noquorum
     assert rls.has_quorum_possible
-    with pytest.raises(InvalidProposal):  # NoQuorum necessary R0
+    with pytest.raises(InvalidProposalError):  # NoQuorum necessary R0
         bp = BlockProposal(height=2, round=1, block=blk2, signing_lockset=ls, round_lockset=rls)
 
 
@@ -314,7 +332,7 @@ def test_VotingInstruction():
         rls.add(v)
     assert not rls.has_quorum_possible
     assert rls.has_noquorum
-    with pytest.raises(InvalidProposal):  # QuorumPossiblle necessary R0
+    with pytest.raises(InvalidProposalError):  # QuorumPossiblle necessary R0
         bp = VotingInstruction(height=2, round=1, round_lockset=rls)
 
     # noquorum
@@ -329,5 +347,5 @@ def test_VotingInstruction():
         rls.add(v)
     assert not rls.has_quorum_possible
     assert rls.has_noquorum
-    with pytest.raises(InvalidProposal):  # QuorumPossiblle necessary R0
+    with pytest.raises(InvalidProposalError):  # QuorumPossiblle necessary R0
         bp = VotingInstruction(height=2, round=1, round_lockset=rls)
