@@ -79,7 +79,7 @@ def test_successive_joining():
     # solution:
     #   send current and last valid lockset and proposal with status
 
-    network = Network(num_nodes=3)
+    network = Network(num_nodes=10)
     RoundManager.timeout = 1
 
     # disable nodes, i.e. they won't connect yet
@@ -91,6 +91,7 @@ def test_successive_joining():
         network.connect_nodes()
         network.start()
         network.run(2)
+    network.run(5)
 
     network.check_consistency()
 

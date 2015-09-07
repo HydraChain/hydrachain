@@ -3,7 +3,7 @@ import gevent
 import time
 from devp2p.protocol import BaseProtocol, SubProtocolError
 from ethereum.transactions import Transaction
-from hydrachain.consensus.base import BlockProposal, VotingInstruction, Vote
+from hydrachain.consensus.base import BlockProposal, VotingInstruction, Vote, LockSet
 from ethereum import slogging
 log = slogging.get_logger('protocol.hdc')
 
@@ -31,11 +31,10 @@ class HDCProtocol(BaseProtocol):
     class status(BaseProtocol.command):
 
         """
-        protocolVersion: The version of the Ethereum protocol this peer implements. 30 at present.
-        networkID: The network version of Ethereum for this peer. 0 for the official testnet.
-        totalDifficulty: Total Difficulty of the best chain. Integer, as found in block header.
-        latestHash: The hash of the block with the highest validated total difficulty.
+        protocolVersion: The version of the HydraChain protocol this peer implements.
+        networkID: The network version of Ethereum for this peer.
         GenesisHash: The hash of the Genesis block.
+        current_lockset: The lockset of the current round from the responding peer
         """
         cmd_id = 0
         sent = False
@@ -43,14 +42,14 @@ class HDCProtocol(BaseProtocol):
         structure = [
             ('eth_version', rlp.sedes.big_endian_int),
             ('network_id', rlp.sedes.big_endian_int),
-            ('chain_difficulty', rlp.sedes.big_endian_int),
-            ('chain_head_hash', rlp.sedes.binary),
-            ('genesis_hash', rlp.sedes.binary)]
+            ('genesis_hash', rlp.sedes.binary),
+            ('current_lockset', LockSet)
+        ]
 
-        def create(self, proto, chain_difficulty, chain_head_hash, genesis_hash):
+        def create(self, proto, genesis_hash, current_lockset):
             self.sent = True
             network_id = proto.service.app.config['hdc'].get('network_id', proto.network_id)
-            return [proto.version, network_id, chain_difficulty, chain_head_hash, genesis_hash]
+            return [proto.version, network_id, genesis_hash, current_lockset]
 
     class transactions(BaseProtocol.command):
 

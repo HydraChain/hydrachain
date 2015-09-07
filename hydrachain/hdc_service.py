@@ -22,8 +22,8 @@ from gevent.queue import Queue
 from ethereum.utils import DEBUG
 from pyethapp.eth_service import ChainService as eth_ChainService
 from .consensus.protocol import HDCProtocol, HDCProtocolError
-from .consensus.base import Signed, VotingInstruction, BlockProposal, Proposal
-from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader
+from .consensus.base import Signed, VotingInstruction, BlockProposal, Proposal, TransientBlock
+from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader, LockSet
 from .consensus.utils import phx
 from .consensus.manager import ConsensusManager, ConsensusContract
 
@@ -324,8 +324,7 @@ class ChainService(eth_ChainService):
         self.consensus_manager.add_vote(vote)
         self.consensus_manager.process()
 
-    def on_receive_status(self, proto, eth_version, network_id, chain_difficulty, chain_head_hash,
-                          genesis_hash):
+    def on_receive_status(self, proto, eth_version, network_id, genesis_hash, current_lockset):
         log.debug('----------------------------------')
         log.debug('status received', proto=proto, eth_version=eth_version)
         assert eth_version == proto.version, (eth_version, proto.version)
@@ -339,8 +338,21 @@ class ChainService(eth_ChainService):
             log.warn("invalid genesis hash", remote_id=proto, genesis=genesis_hash.encode('hex'))
             raise HDCProtocolError('wrong genesis block')
 
+        assert isinstance(current_lockset, LockSet)
+        if len(current_lockset):
+            log.debug('adding received lockset', ls=current_lockset)
+            for v in current_lockset.votes:
+                self.consensus_manager.add_vote(v)
+            self.consensus_manager.process()
+
         # request chain
         #self.synchronizer.receive_status(proto, chain_head_hash, chain_difficulty)
+
+        # send last BlockProposal
+        p = self.consensus_manager.last_blockproposal
+        if p:
+            self.consensus_manager.log('sending proposal', p=p)
+            proto.send_blockproposal(p)
 
         # send transactions
         transactions = self.chain.get_transactions()
@@ -361,9 +373,8 @@ class ChainService(eth_ChainService):
         proto.receive_vote_callbacks.append(self.on_receive_vote)
 
         # send status
-        head = self.chain.head
-        proto.send_status(chain_difficulty=head.chain_difficulty(), chain_head_hash=head.hash,
-                          genesis_hash=self.chain.genesis.hash)
+        proto.send_status(genesis_hash=self.chain.genesis.hash,
+                          current_lockset=self.consensus_manager.active_round.lockset)
 
     def on_wire_protocol_stop(self, proto):
         assert isinstance(proto, self.wire_protocol)
@@ -437,6 +448,8 @@ class ChainService(eth_ChainService):
         if not self.broadcast_filter.update(obj.hash):
             log.debug('already broadcasted', obj=obj)
             return
+        if isinstance(obj, BlockProposal):
+            assert obj.sender == obj.block.header.coinbase
         log.debug('broadcasting', obj=obj)
         bcast = self.app.services.peermanager.broadcast
         bcast(HDCProtocol, fmap[type(obj)], args=(obj,),

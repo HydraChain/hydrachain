@@ -83,7 +83,10 @@ class ConsensusContract(object):
 
 
 class ProtocolFailureEvidence(object):
-    pass
+    evidence = None
+
+    def __repr__(self):
+        return '<%s evidence=%r>' % (self.__class__.__name__, self.evidence)
 
 
 class InvalidProposalEvidence(ProtocolFailureEvidence):
@@ -126,8 +129,7 @@ class ConsensusManager(object):
 
         # sign genesis
         if self.head.number == 0:
-            v = VoteBlock(0, 0, self.head.hash)
-            self.sign(v)
+            v = self.sign(VoteBlock(0, 0, self.head.hash))
             self.add_vote(v)
 
         # add initial lockset
@@ -160,6 +162,11 @@ class ConsensusManager(object):
 
     def has_blockproposal(self, blockhash):
         return bool(self.load_proposal_rlp(blockhash))
+
+    def blockproposal_by_height(self, height):
+        assert 0 < height < self.height
+        bh = self.chainservice.chain.index.get_block_by_number(height)
+        return self.load_proposal(bh)
 
     @property
     def coinbase(self):
@@ -314,7 +321,8 @@ class ConsensusManager(object):
         self.setup_alarm()
 
         for f in self.tracked_protocol_failures:
-            log.warn('protocol failure', incident=f)
+            if not isinstance(f, FailedToProposeEvidence):
+                log.warn('protocol failure', incident=f)
 
     start = process
 
@@ -396,7 +404,6 @@ class HeightManager(object):
         for r in sorted(self.rounds):
             ls = self.rounds[r].lockset
             if ls.is_valid and ls.has_quorum:
-                print ls, ls.votes
                 assert found is None  # consistency check, only one quorum allowed
                 found = ls
         return found
@@ -459,8 +466,10 @@ class RoundManager(object):
             self.cm.tracked_protocol_failures.append(InvalidVoteEvidence(v))
             return
         # report failed proposer
-        if self.lockset.is_valid and not self.proposal and self.lockset.has_noquorum:
-            self.cm.tracked_protocol_failures.append(FailedToProposeEvidence(self.lockset))
+        if self.lockset.is_valid:
+            self.log('lockset is valid', ls=self.lockset)
+            if not self.proposal and self.lockset.has_noquorum:
+                self.cm.tracked_protocol_failures.append(FailedToProposeEvidence(self.lockset))
         return success
 
     def add_proposal(self, p):
