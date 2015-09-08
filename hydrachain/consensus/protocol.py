@@ -22,6 +22,7 @@ class HDCProtocol(BaseProtocol):
     max_cmd_id = 15  # FIXME
     name = 'hdc'
     version = 1
+    max_getproposals_count = 10
 
     def __init__(self, peer, service):
         # required by P2PProtocol
@@ -98,6 +99,8 @@ class HDCProtocol(BaseProtocol):
             """
             rlp data directly from the database
             """
+            assert isinstance(list_of_rlp, tuple)
+            assert not list_of_rlp or isinstance(list_of_rlp[0], bytes)
             return rlp.encode([rlp.codec.RLPData(x) for x in list_of_rlp], infer_serializer=False)
 
     class newblockproposal(BaseProtocol.command):

@@ -49,12 +49,12 @@ def test_basics():
 def test_status():
     peer, proto, chain, cb_data, cb = setup()
     genesis = head = chain.blocks[-1]
+    ls = LockSet(1)
 
     # test status
     proto.send_status(
-        chain_difficulty=head.chain_difficulty(),
-        chain_head_hash=head.hash,
-        genesis_hash=genesis.hash
+        genesis_hash=genesis.hash,
+        current_lockset=ls
     )
     packet = peer.packets.pop()
     proto.receive_status_callbacks.append(cb)
@@ -63,10 +63,8 @@ def test_status():
     _p, _d = cb_data.pop()
     assert _p == proto
     assert isinstance(_d, dict)
-    assert _d['chain_difficulty'] == head.chain_difficulty()
-    print _d
-    assert _d['chain_head_hash'] == head.hash
     assert _d['genesis_hash'] == genesis.hash
+    assert _d['current_lockset'] == ls
     assert 'eth_version' in _d
     assert 'network_id' in _d
 
@@ -96,15 +94,15 @@ def test_blocks():
     assert len(chain.blocks) == 3
     proposals = [create_proposal(b) for b in chain.blocks[1:]]
     payload = [rlp.encode(p) for p in proposals]
-    proto.send_blocks(*payload)
+    proto.send_blockproposals(*payload)
     packet = peer.packets.pop()
     assert len(rlp.decode(packet.payload)) == 2
 
     def list_cb(proto, blocks):
         cb_data.append((proto, blocks))
 
-    proto.receive_blocks_callbacks.append(list_cb)
-    proto._receive_blocks(packet)
+    proto.receive_blockproposals_callbacks.append(list_cb)
+    proto._receive_blockproposals(packet)
 
     _p, proposals = cb_data.pop()
     assert isinstance(proposals, list)
@@ -129,8 +127,11 @@ def test_votinginstruction():
     round = 0
     bh = '1' * 32
     round_lockset = LockSet(len(validators))
-    for privkey in privkeys:
-        v = VoteBlock(height, 0, bh)
+    for i, privkey in enumerate(privkeys):
+        if i < len(validators) // 3 + 1:
+            v = VoteBlock(height, 0, bh)
+        else:
+            v = VoteNil(height, 0)
         v.sign(privkey)
         round_lockset.add(v)
     bp = VotingInstruction(height=height, round=1, round_lockset=round_lockset)
@@ -152,18 +153,18 @@ def test_votinginstruction():
     assert vi == bp
 
 
-def test_getblocks():
+def test_getblockproposals():
     peer, proto, chain, cb_data, cb = setup()
     payload = range(10)
-    proto.send_getblocks(*payload)
+    proto.send_getblockproposals(*payload)
     packet = peer.packets.pop()
     assert len(rlp.decode(packet.payload)) == len(payload)
 
     def list_cb(proto, blocks):
         cb_data.append((proto, blocks))
 
-    proto.receive_getblocks_callbacks.append(list_cb)
-    proto._receive_getblocks(packet)
+    proto.receive_getblockproposals_callbacks.append(list_cb)
+    proto._receive_getblockproposals(packet)
     _p, data = cb_data.pop()
     assert data == payload
 

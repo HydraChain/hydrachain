@@ -19,15 +19,14 @@ import gevent.lock
 import statistics
 from collections import deque
 from gevent.queue import Queue
-from ethereum.utils import DEBUG
 from pyethapp.eth_service import ChainService as eth_ChainService
 from .consensus.protocol import HDCProtocol, HDCProtocolError
 from .consensus.base import Signed, VotingInstruction, BlockProposal, Proposal, TransientBlock
 from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader, LockSet
 from .consensus.utils import phx
-from .consensus.manager import ConsensusManager, ConsensusContract
+from .consensus.manager import ConsensusManager
+from .consensus.contract import ConsensusContract
 
-import json
 
 log = get_logger('hdc.chainservice')
 
@@ -96,7 +95,6 @@ class ChainService(eth_ChainService):
                                    pruning=-1,
                                    block=ethereum_config.default_config),
                           hdc=dict(validators=[]),
-
                           )
 
     # required by WiredService
@@ -153,9 +151,6 @@ class ChainService(eth_ChainService):
         if 'genesis_hash' in sce:
             assert sce['genesis_hash'] == self.chain.genesis.hex_hash()
 
-#        self.synchronizer = Synchronizer(self, force_sync=None)
-
-#        self.block_queue = Queue(maxsize=self.block_queue_size)
         self.transaction_queue = Queue(maxsize=self.transaction_queue_size)
         self.add_blocks_lock = False
         self.add_transaction_lock = gevent.lock.Semaphore()
@@ -168,8 +163,8 @@ class ChainService(eth_ChainService):
         self.consensus_contract = ConsensusContract(validators=self.config['hdc']['validators'])
         self.consensus_manager = ConsensusManager(self, self.consensus_contract,
                                                   self.consensus_privkey)
-
-        # self.consensus_manager.process()
+        #  self.consensus_manager.process()
+        #  ConsensusManager is started once a peer connects and status_message is received
 
     # interface accessed by ConensusManager
 
@@ -243,15 +238,9 @@ class ChainService(eth_ChainService):
 
     ###############################################################################
 
-    # @property
-    # def is_syncing(self):
-    #     return self.synchronizer.synctask is not None
-
-    # @property
-    # def is_mining(self):
-    #     if 'pow' in self.app.services:
-    #         return self.app.services.pow.active
-    #     return False
+    @property
+    def is_syncing(self):
+        return self.consensus_manager.synchronizer.is_syncing
 
     # wire protocol receivers ###########
 
@@ -266,19 +255,21 @@ class ChainService(eth_ChainService):
 
     # blocks / proposals ################
 
-    def on_receive_getblockproposals(self, proto, blockrequests):
+    def on_receive_getblockproposals(self, proto, blocknumbers):
         log.debug('----------------------------------')
-        log.debug("on_receive_getblockproposals", count=len(blockrequests))
+        log.debug("on_receive_getblockproposals", count=len(blocknumbers))
         found = []
-        for i, height in blockrequests:
+        for i, height in enumerate(blocknumbers):
             if i == self.wire_protocol.max_getproposals_count:
                 break
             assert isinstance(height, int)  # integers
-            assert i == 0 or height > blockrequests[i - 1]   # sorted
+            assert i == 0 or height > blocknumbers[i - 1]   # sorted
             if height > self.chain.head.number:
                 log.debug("unknown block requested", height=height)
                 break
-            found.append(self.consensus_manager.get_blockproposal_rlp_by_height(height))
+            rlp_data = self.consensus_manager.get_blockproposal_rlp_by_height(height)
+            assert isinstance(rlp_data, bytes)
+            found.append(rlp_data)
         if found:
             log.debug("found", count=len(found))
             proto.send_blockproposals(*found)
@@ -287,12 +278,7 @@ class ChainService(eth_ChainService):
         log.debug('----------------------------------')
         self.consensus_manager.log('received proposals', sender=proto)
         log.debug("recv proposals", num=len(proposals), remote_id=proto)
-        # self.synchronizer.receive_newproposal(proto, proposal)
-        for p in proposals:
-            assert isinstance(p, BlockProposal)
-            assert isinstance(p.block.header, HDCBlockHeader)
-            self.consensus_manager.add_proposal(p)
-            self.consensus_manager.process()
+        self.consensus_manager.synchronizer.receive_blockproposals(proposals)
 
     def on_receive_newblockproposal(self, proto, proposal):
         log.debug('----------------------------------')
@@ -301,14 +287,14 @@ class ChainService(eth_ChainService):
         # self.synchronizer.receive_newproposal(proto, proposal)
         assert isinstance(proposal, BlockProposal)
         assert isinstance(proposal.block.header, HDCBlockHeader)
-        self.consensus_manager.add_proposal(proposal)
+        self.consensus_manager.add_proposal(proposal, proto)
         self.consensus_manager.process()
 
     def on_receive_votinginstruction(self, proto, votinginstruction):
         log.debug('----------------------------------')
         log.debug("recv votinginstruction", proposal=votinginstruction, remote_id=proto)
         # self.synchronizer.receive_newproposal(proto, proposal)
-        self.consensus_manager.add_proposal(votinginstruction)
+        self.consensus_manager.add_proposal(votinginstruction, proto)
         self.consensus_manager.process()
 
     #  votes
@@ -340,10 +326,8 @@ class ChainService(eth_ChainService):
             log.debug('adding received lockset', ls=current_lockset)
             for v in current_lockset.votes:
                 self.consensus_manager.add_vote(v)
-            self.consensus_manager.process()
 
-        # request chain
-        #self.synchronizer.receive_status(proto, chain_head_hash, chain_difficulty)
+        self.consensus_manager.process()
 
         # send last BlockProposal
         p = self.consensus_manager.last_blockproposal
@@ -379,73 +363,8 @@ class ChainService(eth_ChainService):
         log.debug('----------------------------------')
         log.debug('on_wire_protocol_stop', proto=proto)
 
-
-###################
-
-    def _on_new_head(self, block):
-        # DEBUG('new head cbs', len(self.on_new_head_cbs))
-        for cb in self.on_new_head_cbs:
-            cb(block)
-        self._on_new_head_candidate()  # we implicitly have a new head_candidate
-
-    def _on_new_head_candidate(self):
-        # DEBUG('new head candidate cbs', len(self.on_new_head_candidate_cbs))
-        for cb in self.on_new_head_candidate_cbs:
-            cb(self.chain.head_candidate)
-
-    def add_transaction(self, tx, origin=None):
-        if self.is_syncing:
-            return  # we can not evaluate the tx based on outdated state
-        log.debug('add_transaction', locked=self.add_transaction_lock.locked(), tx=tx)
-        assert isinstance(tx, Transaction)
-        assert origin is None or isinstance(origin, BaseProtocol)
-
-        if tx.hash in self.broadcast_filter:
-            log.debug('discarding known tx')  # discard early
-            return
-
-        # validate transaction
-        try:
-            validate_transaction(self.chain.head_candidate, tx)
-            log.debug('valid tx, broadcasting')
-            self.broadcast(tx, origin=origin)  # asap
-        except InvalidTransaction as e:
-            log.debug('invalid tx', error=e)
-            return
-
-        if origin is not None:  # not locally added via jsonrpc
-            if not self.is_mining or self.is_syncing:
-                log.debug('discarding tx', syncing=self.is_syncing, mining=self.is_mining)
-                return
-
-        self.add_transaction_lock.acquire()
-        success = self.chain.add_transaction(tx)
-        self.add_transaction_lock.release()
-        if success:
-            self._on_new_head_candidate()
-
-    def knows_block(self, block_hash):
-        "if block is in chain or in queue"
-        if block_hash in self.chain:
-            return True
-        # check if queued or processed
-        for i in range(len(self.block_queue.queue)):
-            if block_hash == self.block_queue.queue[i][0].header.hash:
-                return True
-        return False
-
-    def gpsec(self, gas_spent=0, elapsed=0):
-        if gas_spent:
-            self.processed_gas += gas_spent
-            self.processed_elapsed += elapsed
-        return int(self.processed_gas / (0.001 + self.processed_elapsed))
-
     def broadcast(self, obj, origin_proto=None):
         """
-        idea: send broadcast filters to all peers.
-        - whenever the set of peers changes
-        - create range filters by dividing the 2**256 space by the set of synced peers
-        - send range filters to those peers
         """
         fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
                 VotingInstruction: 'votinginstruction', Transaction: 'transaction'}

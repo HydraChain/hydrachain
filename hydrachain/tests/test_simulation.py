@@ -13,7 +13,7 @@ def test_basic_gevent():
     network.connect_nodes()
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=0)
 
 
 def test_basic_simenv():
@@ -21,7 +21,7 @@ def test_basic_simenv():
     network.connect_nodes()
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=0)
 
 
 def test_failing_validators():
@@ -30,7 +30,7 @@ def test_failing_validators():
     network.disable_validators(num=3)
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=0)
 
 
 def test_slow_validators():
@@ -39,7 +39,7 @@ def test_slow_validators():
     network.throttle_validators(num=3)
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=1)
 
 
 def test_slow_and_failing_validators():
@@ -49,7 +49,7 @@ def test_slow_and_failing_validators():
     network.throttle_validators(num=6)
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=1)
 
 
 def test_low_timeout():
@@ -59,12 +59,25 @@ def test_low_timeout():
     network.connect_nodes()
     network.start()
     network.run(10)
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=1)
     RoundManager.timeout = orig_timeout
 
 
 def test_resyncing_of_peers():
-    pass
+    network = Network(num_nodes=10, simenv=True)
+    RoundManager.timeout = 1
+
+    # disable one node, i.e. it will not connect yet
+    network.nodes[0].isactive = False
+    network.connect_nodes()
+    network.start()
+    network.run(5)
+    network.nodes[0].isactive = True
+    network.connect_nodes()
+    network.start()
+    network.run(2)
+
+    network.check_consistency(allowed_height_distance=0)
 
 
 def test_successive_joining():
@@ -79,7 +92,7 @@ def test_successive_joining():
     # solution:
     #   send current and last valid lockset and proposal with status
 
-    network = Network(num_nodes=10)
+    network = Network(num_nodes=10, simenv=True)
     RoundManager.timeout = 1
 
     # disable nodes, i.e. they won't connect yet
@@ -91,9 +104,9 @@ def test_successive_joining():
         network.connect_nodes()
         network.start()
         network.run(2)
-    network.run(5)
+    network.run(2)
 
-    network.check_consistency()
+    network.check_consistency(allowed_height_distance=0)
 
 
 """
@@ -101,6 +114,4 @@ ToDo:
     broadcasts
     test with only few peers
     broadcast filters
-    syncing
-
 """

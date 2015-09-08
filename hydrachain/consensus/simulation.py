@@ -65,22 +65,23 @@ class Transport(object):
         return delay
 
     def deliver(self, sender, receiver, packet, add_delay=0):
+        delay = self.delay(sender, receiver, packet, add_delay)
         if self.simenv:
-            self.simenv_deliver(sender, receiver, packet, add_delay)
+            self.simenv_deliver(sender, receiver, packet, delay)
         else:
-            self.gevent_deliver(sender, receiver, packet, add_delay)
+            self.gevent_deliver(sender, receiver, packet, delay)
 
-    def gevent_deliver(self, sender, receiver, packet, add_delay=0):
+    def gevent_deliver(self, sender, receiver, packet, delay):
         assert sender != receiver
 
         def transfer():
-            gevent.sleep(self.delay(sender, receiver, packet, add_delay))
+            gevent.sleep(delay)
             receiver.receive_packet(sender, packet)
         gevent.spawn(transfer)
 
-    def simenv_deliver(self, sender, receiver, packet, add_delay=0):
+    def simenv_deliver(self, sender, receiver, packet, delay):
         def transfer():
-            yield self.simenv.timeout(self.delay(sender, receiver, packet, add_delay))
+            yield self.simenv.timeout(delay)
             receiver.receive_packet(sender, packet)
 
         self.simenv.process(transfer())
@@ -318,7 +319,7 @@ class Network(object):
     def consensus_managers(self):
         return [n.services.chainservice.consensus_manager for n in self.nodes]
 
-    def check_consistency(self):
+    def check_consistency(self, allowed_height_distance=None):
         print 'checking consistency'
         cs = self.consensus_managers()
         # check they are all on the same block or the previous one
@@ -328,6 +329,8 @@ class Network(object):
             print 'but note: byzantine nodes might have no chance to sync'
         else:
             print 'all nodes on same height', s
+        if allowed_height_distance is not None:
+            assert max(s.keys()) - min(s.keys()) <= allowed_height_distance
         max_height = height = max(s)
 
         # check they are all using the same block

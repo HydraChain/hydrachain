@@ -1,9 +1,12 @@
 # Copyright (c) 2015 Heiko Hees
+import sys
 import rlp
-from base import LockSet, Vote, VoteBlock, VoteNil, Signed
-from base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
-from base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
-from utils import cstr, phx
+from .base import LockSet, Vote, VoteBlock, VoteNil, Signed
+from .base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
+from .base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
+from .protocol import HDCProtocol
+from .utils import cstr, phx
+from .synchronizer import Synchronizer
 from ethereum.slogging import get_logger
 log = get_logger('hdc.consensus')
 
@@ -21,7 +24,7 @@ class ManagerDict(object):
         return self.d[k]
 
     def __iter__(self):
-        return iter(self.d)
+        return iter(sorted(self.d, reverse=True))
 
     def pop(self, k):
         self.d.pop(k)
@@ -29,57 +32,6 @@ class ManagerDict(object):
 
 class MissingParent(Exception):
     pass
-
-
-class Synchronizer(object):
-
-    def __init__(self, consensusmanager):
-        self.cm = consensusmanager
-        self.requested = set()
-
-    def process(self):
-        "check which blocks are missing, request and keep track of them"
-        self.cm.log('in sync.process', known=len(self.cm.block_candidates),
-                    requested=len(self.requested))
-        missing = set()
-        for p in self.cm.block_candidates.values():
-            if not self.cm.get_blockproposal(p.block.prevhash):
-                missing.add(p.block.prevhash)
-            if p.blockhash in self.requested:
-                self.requested.remove(p.blockhash)  # cleanup
-
-        p = self.cm.active_round.proposal
-        if isinstance(p, VotingInstruction) and not self.cm.get_blockproposal(p.blockhash):
-            missing.add(p.blockhash)
-        for blockhash in missing - self.requested:
-            self.requested.add(blockhash)
-            self.cm.broadcast(BlockRequest(blockhash))
-        if self.requested:
-            self.cm.log('sync', requested=[phx(bh) for bh in self.requested],
-                        missing=len(missing))
-
-
-class ConsensusContract(object):
-
-    def __init__(self, validators):
-        self.validators = validators
-
-    def proposer(self, height, round_):
-        v = abs(hash(repr((height, round_))))
-        return self.validators[v % len(self.validators)]
-
-    def isvalidator(self, address, height=0):
-        assert len(self.validators)
-        return address in self.validators
-
-    def isproposer(self, p):
-        assert isinstance(p, Proposal)
-        return p.sender == self.proposer(p.height, p.round)
-
-    def num_eligible_votes(self, height):
-        if height == 0:
-            return 0
-        return len(self.validators)
 
 
 class ProtocolFailureEvidence(object):
@@ -113,6 +65,12 @@ class FailedToProposeEvidence(ProtocolFailureEvidence):
         self.evidence = round_lockset
 
 
+class ForkDetectedEvidence(ProtocolFailureEvidence):
+
+    def __init__(self, prevblock, block, committing_lockset):
+        self.evidence = (prevblock, block, committing_lockset)
+
+
 class ConsensusManager(object):
 
     def __init__(self, chainservice, consensus_contract, privkey):
@@ -144,18 +102,20 @@ class ConsensusManager(object):
 
     def store_proposal(self, p):
         assert isinstance(p, BlockProposal)
-        self.chainservice.db.put('blockproposal:%s' % p.blockhash, BlockProposal.serialize(p))
+        self.chainservice.db.put('blockproposal:%s' % p.blockhash, rlp.encode(p))
 
     def load_proposal_rlp(self, blockhash):
         try:
-            return self.chainservice.db.get('blockproposal:%s' % blockhash)
+            prlp = self.chainservice.db.get('blockproposal:%s' % blockhash)
+            assert isinstance(prlp, bytes)
+            return prlp
         except KeyError:
             return None
 
     def load_proposal(self, blockhash):
         prlp = self.load_proposal_rlp(blockhash)
         if prlp:
-            return BlockProposal.deserialize(prlp)
+            return rlp.decode(prlp, sedes=BlockProposal)
 
     def get_blockproposal(self, blockhash):
         return self.block_candidates.get(blockhash) or self.load_proposal(blockhash)
@@ -163,10 +123,10 @@ class ConsensusManager(object):
     def has_blockproposal(self, blockhash):
         return bool(self.load_proposal_rlp(blockhash))
 
-    def blockproposal_by_height(self, height):
+    def get_blockproposal_rlp_by_height(self, height):
         assert 0 < height < self.height
         bh = self.chainservice.chain.index.get_block_by_number(height)
-        return self.load_proposal(bh)
+        return self.load_proposal_rlp(bh)
 
     @property
     def coinbase(self):
@@ -214,7 +174,10 @@ class ConsensusManager(object):
             log.warn('double voting detected', vote=v, ls=ls)
         return success
 
-    def add_proposal(self, p):
+    def add_proposal(self, p, proto=None):
+        assert isinstance(p, Proposal)
+        assert proto is None or isinstance(proto, HDCProtocol)
+
         def check(valid):
             if not valid:
                 self.tracked_protocol_failures.append(InvalidProposalEvidence(p))
@@ -222,7 +185,6 @@ class ConsensusManager(object):
                 raise InvalidProposalError()
             return True
 
-        assert isinstance(p, Proposal)
         self.log('cm.add_proposal', p=p)
         if p.height < self.height:
             self.log('proposal from the past')
@@ -236,6 +198,11 @@ class ConsensusManager(object):
             return
         if not check(p.round - p.lockset.round == 1 or p.round == 0):
             return
+
+        # proposal is valid
+        if proto is not None:  # inactive proto is False
+            self.synchronizer.on_proposal(p, proto)
+
         for v in p.lockset:
             self.add_vote(v)  # implicitly checks their validity
         if isinstance(p, BlockProposal):
@@ -245,16 +212,27 @@ class ConsensusManager(object):
                 return
             # validation
             if p.height > self.height:
-                self.log('proposal from the future, not in sync FIXME')
+                self.log('proposal from the future, not in sync', p=p)
                 return
             blk = self.chainservice.link_block(p.block)
             if not check(blk):
+                # safeguard for forks:
+                # if there is a quorum on a block which can not be applied: panic!
+                ls = self.heights[p.height].last_quorum_lockset
+                if ls and ls.has_quorum == p.blockhash:
+                    raise ForkDetectedEvidence((self.head, p, ls))
+                    sys.exit(1)
                 return
             p.block = blk  # block linked to chain
+            self.log('successfully linked block')
             self.add_block_proposal(p)  # implicitly checks the votes validity
         else:
             assert isinstance(p, VotingInstruction)
-            if not check(p.lockset.has_quorum_possible):
+            assert p.lockset.round == p.round - 1 and p.height == p.lockset.height
+            assert p.round > 0
+            assert p.lockset.has_quorum_possible
+            assert not p.lockset.has_quorum
+            if not check(p.lockset.has_quorum_possible and not p.lockset.has_quorum):
                 return
         is_valid = self.heights[p.height].add_proposal(p)
         return is_valid  # can be broadcasted
@@ -273,6 +251,13 @@ class ConsensusManager(object):
     @property
     def last_committing_lockset(self):
         return self.heights[self.height - 1].last_quorum_lockset
+
+    @property
+    def highest_committing_lockset(self):
+        for height in self.heights:
+            ls = self.heights[height].last_quorum_lockset
+            if ls:
+                return ls
 
     @property
     def last_valid_lockset(self):
@@ -317,7 +302,7 @@ class ConsensusManager(object):
         self.heights[self.height].process()
         self.commit()
         self.cleanup()
-        # self.synchronizer.process()
+        self.synchronizer.process()
         self.setup_alarm()
 
         for f in self.tracked_protocol_failures:
@@ -339,6 +324,10 @@ class ConsensusManager(object):
                     assert self.head == p.block
                     self.commit()
                     return
+                else:
+                    self.log('could not commit', p=p)
+            else:
+                self.log('no quorum for', p=p)
 
     def cleanup(self):
         self.log('in cleanup')
@@ -376,14 +365,16 @@ class HeightManager(object):
     @property
     def last_lock(self):
         "highest lock on height"
-        for r in reversed(sorted(self.rounds)):
+        rs = list(self.rounds)
+        assert len(rs) < 2 or rs[0] > rs[1]  # FIXME REMOVE
+        for r in self.rounds:  # is sorted highest to lowest
             if self.rounds[r].lock is not None:
                 return self.rounds[r].lock
 
     @property
     def last_voted_blockproposal(self):
         "the last block proposal node voted on"
-        for r in reversed(sorted(self.rounds)):
+        for r in self.rounds:
             if isinstance(self.rounds[r].proposal, BlockProposal):
                 assert isinstance(self.rounds[r].lock, Vote)
                 if self.rounds[r].proposal.blockhash == self.rounds[r].lock.blockhash:
@@ -392,7 +383,7 @@ class HeightManager(object):
     @property
     def last_valid_lockset(self):
         "highest valid lockset on height"
-        for r in reversed(sorted(self.rounds)):
+        for r in self.rounds:
             ls = self.rounds[r].lockset
             if ls.is_valid:
                 return ls
@@ -401,7 +392,7 @@ class HeightManager(object):
     @property
     def last_quorum_lockset(self):
         found = None
-        for r in sorted(self.rounds):
+        for r in sorted(self.rounds):  # search from lowest round first
             ls = self.rounds[r].lockset
             if ls.is_valid and ls.has_quorum:
                 assert found is None  # consistency check, only one quorum allowed
@@ -524,7 +515,10 @@ class RoundManager(object):
 
         round_lockset = self.cm.last_valid_lockset
         self.log('in creating proposal', round_lockset=round_lockset)
-        if self.round == 0 or round_lockset.has_noquorum:
+
+        if round_lockset.has_quorum:
+            return
+        elif self.round == 0 or round_lockset.has_noquorum:
             proposal = self.mk_proposal()
         elif round_lockset.has_quorum_possible:
             proposal = VotingInstruction(self.height, self.round, round_lockset.copy())
