@@ -517,8 +517,8 @@ class RoundManager(object):
         round_lockset = self.cm.last_valid_lockset
         self.log('in creating proposal', round_lockset=round_lockset)
 
-        if round_lockset == self.lockset and round_lockset.has_quorum:
-            self.log('current lockset has quorum not proposing')
+        if round_lockset.height == self.height and round_lockset.has_quorum:
+            self.log('have quorum on height, not proposing')
             return
         elif self.round == 0 or round_lockset.has_noquorum:
             proposal = self.mk_proposal()
