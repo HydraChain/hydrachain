@@ -86,19 +86,23 @@ class ConsensusManager(object):
         self.tracked_protocol_failures = list()
 
         # sign genesis
-        if self.head.number == 0:
-            v = self.sign(VoteBlock(0, 0, self.head.hash))
-            self.add_vote(v)
+
+        v = self.sign(VoteBlock(0, 0, self.chainservice.chain.genesis.hash))
+        self.add_vote(v)
 
         # add initial lockset
         head_proposal = self.load_proposal(self.head.hash)
+        #assert head_proposal
         if head_proposal:
             for v in head_proposal.signing_lockset:
                 self.add_vote(v)
 
+        assert self.highest_committing_lockset
+        assert self.last_valid_lockset
+
         assert self.contract.isvalidator(self.coinbase)
 
-    # pesist proposals
+    # persist proposals
 
     def store_proposal(self, p):
         assert isinstance(p, BlockProposal)
