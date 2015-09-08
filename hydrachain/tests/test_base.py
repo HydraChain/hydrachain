@@ -2,7 +2,7 @@
 from hydrachain.consensus.base import Vote, VoteBlock, VoteNil, LockSet, ishash
 from hydrachain.consensus.base import DoubleVotingError, InvalidVoteError
 from hydrachain.consensus.base import BlockProposal, genesis_signing_lockset, InvalidProposalError
-from hydrachain.consensus.base import Proposal, VotingInstruction
+from hydrachain.consensus.base import Proposal, VotingInstruction, InvalidSignature
 
 from ethereum import utils, tester
 import rlp
@@ -151,6 +151,7 @@ def test_LockSet_isvalid():
         else:
             assert ls.is_valid
             assert ls.has_quorum  # same blockhash
+        ls.check()
 
 
 def test_LockSet_3_quorums():
@@ -169,6 +170,7 @@ def test_LockSet_3_quorums():
     assert ls.has_noquorum
     assert not ls.has_quorum
     assert not ls.has_quorum_possible
+    assert ls.check()
 
 
 def test_LockSet_quorums():
@@ -206,6 +208,7 @@ def test_LockSet_quorums():
                 ls.add(v)
             assert len(ls) >= 7
             assert getattr(ls, method)
+            ls.check()
 
             # check stable sort
             bhs = ls.blockhashes()
@@ -262,11 +265,16 @@ def test_blockproposal():
     with pytest.raises(InvalidProposalError):  # signature missing
         bp.validate_votes(validators, validators)
 
-    bp.sign(privkeys[0])
-    with pytest.raises(InvalidProposalError):  # round >0 needs round_lockset
+    with pytest.raises(InvalidProposalError):
+        bp.sign(privkeys[0])  # privkey doesnt match coinbase
         bp.validate_votes(validators, validators)
 
+    with pytest.raises(InvalidSignature):  # already signed
+        bp.sign(tester.k0)
+
+    bp.v = 0  # reset sigcheck hack
     bp.sign(tester.k0)
+
     bp.validate_votes(validators, validators)
 
     with pytest.raises(InvalidProposalError):  # round >0 needs round_lockset

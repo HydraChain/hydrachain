@@ -20,6 +20,10 @@ def ishash(h):
     return isinstance(h, bytes) and len(h) == 32
 
 
+def isaddress(a):
+    return isinstance(a, bytes) and len(a) == 20
+
+
 class InvalidSignature(Exception):
     pass
 
@@ -232,9 +236,7 @@ class LockSet(RLPHashable):  # careful, is mutable!
         assert self.is_valid
         bhs = self.blockhashes()
         if bhs and bhs[0][1] > 2 / 3. * self.num_eligible_votes:
-            assert self.has_quorum_possible
             return bhs[0][0]
-        assert self.has_noquorum or self.has_quorum_possible
 
     @property
     def has_noquorum(self):
@@ -254,13 +256,23 @@ class LockSet(RLPHashable):  # careful, is mutable!
         at least one vote was from a honest node.
         we can assume that this block is agreeable.
         """
+        if self.has_quorum:
+            return
         assert self.is_valid  # we could tell that earlier
         bhs = self.blockhashes()
         if bhs and bhs[0][1] > 1 / 3. * self.num_eligible_votes:
             return bhs[0][0]
 
+    def check(self):
+        "either invalid or one of quorum, noquorum, quorumpossible"
+        if not self.is_valid:
+            return True
+        test = (self.has_quorum, self.has_quorum_possible, self.has_noquorum)
+        assert 1 == len([x for x in test if x is not None])
+        return True
 
 ############
+
 
 def genesis_signing_lockset(genesis, privkey):
     """
@@ -473,7 +485,3 @@ class VotingInstruction(Proposal):
         for v in self.round_lockset:
             if v.sender not in validators_H:
                 raise InvalidProposalError('invalid signer')
-
-
-#########################
-# safeguard for forks: if there is a quorum on a block which has a wrong prevhash: panic!
