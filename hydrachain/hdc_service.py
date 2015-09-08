@@ -49,7 +49,7 @@ rlp_hash_hex = lambda data: encode_hex(sha3(rlp.encode(data)))
 
 class DuplicatesFilter(object):
 
-    def __init__(self, max_items=128):
+    def __init__(self, max_items=1024):
         self.max_items = max_items
         self.filter = list()
 
@@ -281,28 +281,41 @@ class ChainService(eth_ChainService):
         self.consensus_manager.synchronizer.receive_blockproposals(proposals)
 
     def on_receive_newblockproposal(self, proto, proposal):
+        if proposal.hash in self.broadcast_filter:
+            return
         log.debug('----------------------------------')
         self.consensus_manager.log('receive proposal', sender=proto)
         log.debug("recv newblockproposal", proposal=proposal, remote_id=proto)
         # self.synchronizer.receive_newproposal(proto, proposal)
         assert isinstance(proposal, BlockProposal)
         assert isinstance(proposal.block.header, HDCBlockHeader)
-        self.consensus_manager.add_proposal(proposal, proto)
+        isvalid = self.consensus_manager.add_proposal(proposal, proto)
+        if isvalid:
+            self.broadcast(proposal, origin_proto=proto)
         self.consensus_manager.process()
 
     def on_receive_votinginstruction(self, proto, votinginstruction):
+        if votinginstruction.hash in self.broadcast_filter:
+            return
         log.debug('----------------------------------')
         log.debug("recv votinginstruction", proposal=votinginstruction, remote_id=proto)
         # self.synchronizer.receive_newproposal(proto, proposal)
-        self.consensus_manager.add_proposal(votinginstruction, proto)
+        isvalid = self.consensus_manager.add_proposal(votinginstruction, proto)
+        if isvalid:
+            self.broadcast(votinginstruction, origin_proto=proto)
+
         self.consensus_manager.process()
 
     #  votes
 
     def on_receive_vote(self, proto, vote):
+        if vote.hash in self.broadcast_filter:
+            return
         log.debug('----------------------------------')
         log.debug("recv vote", vote=vote, remote_id=proto)
-        self.consensus_manager.add_vote(vote)
+        isvalid = self.consensus_manager.add_vote(vote)
+        if isvalid:
+            self.broadcast(vote, origin_proto=proto)
         self.consensus_manager.process()
 
     #  start
