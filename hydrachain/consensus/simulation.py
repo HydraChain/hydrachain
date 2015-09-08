@@ -20,6 +20,9 @@ import gevent
 log = slogging.get_logger('hdc.sim')
 slogging.configure(config_string=':debug')
 
+# stop on exception
+gevent.get_hub().SYSTEM_ERROR = BaseException
+
 # reduce key derivation iterations
 ethereum.keys.PBKDF2_CONSTANTS['c'] = 100
 
@@ -128,14 +131,14 @@ class PeerMock(object):
 
     def send_packet(self, packet):
         assert self.peer
-        log.debug('send_packet', sender=self, receiver=self.peer)
+        # log.debug('send_packet', sender=self, receiver=self.peer)
         self.egress_bytes += len(packet)
         self.transport.deliver(self, self.peer, packet)
 
     def receive_packet(self, sender, packet):
         assert self.app.isactive
         assert sender != self
-        log.debug('receive_packet', sender=sender, receiver=self)
+        # log.debug('receive_packet', sender=sender, receiver=self)
         self.ingress_bytes += len(packet)
         self.protocol.receive_packet(packet)
 
@@ -192,11 +195,11 @@ class SimChainService(ChainService):
             cb(*args)
         self.simenv.process(_trigger())
 
-    def on_receive_blockproposal(self, proto, proposal):
+    def on_receive_newblockproposal(self, proto, proposal):
 
         def process():
             yield self.simenv.timeout(self.processing_time)
-            super(SimChainService, self).on_receive_blockproposal(proto, proposal)
+            super(SimChainService, self).on_receive_newblockproposal(proto, proposal)
 
         self.simenv.process(process())
 
@@ -319,19 +322,16 @@ class Network(object):
     def consensus_managers(self):
         return [n.services.chainservice.consensus_manager for n in self.nodes]
 
-    def check_consistency(self, allowed_height_distance=None):
-        print 'checking consistency'
+    def check_consistency(self):
+        if self.simenv:
+            elapsed = self.simenv.now
+        else:
+            elapsed = time.time() - self.starttime
         cs = self.consensus_managers()
         # check they are all on the same block or the previous one
-        s = Counter(c.chain.head.number for c in cs)
-        if len(s) > 1:
-            print 'nodes on different heights (H:num_nodes)', s
-            print 'but note: byzantine nodes might have no chance to sync'
-        else:
-            print 'all nodes on same height', s
-        if allowed_height_distance is not None:
-            assert max(s.keys()) - min(s.keys()) <= allowed_height_distance
-        max_height = height = max(s)
+        heights = Counter(c.chain.head.number for c in cs)
+        height_distance = max(heights.keys()) - min(heights.keys())
+        max_height = height = max(heights)
 
         # check they are all using the same block
         while height > 0:
@@ -350,7 +350,7 @@ class Network(object):
                 bh = c.chain.index.get_block_by_number(blk.number - 1)
                 blk = c.chain.get(bh)
                 assert isinstance(blk, Block)
-        print 'max height', max_height, 'max rounds', max_rounds + 1
+        max_rounds += 1
 
         # messages
         ingress_bytes_transfered = 0
@@ -361,16 +361,32 @@ class Network(object):
                 ingress_bytes_transfered += p.ingress_bytes
                 egress_bytes_transfered += p.egress_bytes
 
-        print ingress_bytes_transfered, 'bytes received (note this is filtered)'
-        print ingress_bytes_transfered / max_height / len(self.nodes), 'bytes per height and node'
+        r = dict(max_height=max_height,
+                 max_rounds=max_rounds,
+                 heights=heights,
+                 ingress_bytes_transfered=ingress_bytes_transfered,
+                 egress_bytes_transfered=egress_bytes_transfered,
+                 elapsed=elapsed,
+                 height_distance=height_distance)
+        log.debug('checked consistency', r=r)
+        return r
 
-        print egress_bytes_transfered, 'bytes sent'
-        print egress_bytes_transfered / max_height / len(self.nodes), 'bytes per height and node'
+# funcs making assumptions on the return value of Network.check_consistency
 
-        # print
-        # elapsed = self.nodes[0].env.network.last_delivery
-        # print 'elapsed', elapsed
-        # print 'avg/block time', elapsed / max_height
+
+def assert_blocktime(r, max_avg_blocktime=1):
+    print r
+    assert r['elapsed'] / r['max_height'] < max_avg_blocktime
+
+
+def assert_maxrounds(r, max_rounds=1):
+    assert max_rounds > 0
+    assert r['max_rounds'] == max_rounds
+
+
+def assert_heightdistance(r, max_distance=0):
+    assert r['max_height'] > 0
+    assert r['height_distance'] <= max_distance
 
 
 def main(num_nodes=10, sim_duration=10, timeout=0.5,
