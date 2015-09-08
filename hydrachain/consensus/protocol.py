@@ -75,20 +75,20 @@ class HDCProtocol(BaseProtocol):
                     gevent.sleep(0.0001)
             return txs
 
-    class getblocks(BaseProtocol.command):
+    class getblockproposals(BaseProtocol.command):
 
         """
-        Requests a Blocks message detailing a number of blocks to be sent, each referred to
+        Requests a BlockProposals message detailing a number of blocks to be sent, each referred to
         by block number. Note: Don't expect that the peer necessarily give you all these blocks
         in a single message - you might have to re-request them.
         """
         cmd_id = 2
         structure = rlp.sedes.CountableList(rlp.sedes.big_endian_int)
 
-    class blocks(BaseProtocol.command):
+    class blockproposals(BaseProtocol.command):
 
         """
-        BlockProposals sent in response to a getblocks request
+        BlockProposals sent in response to a getproposals request
         """
         cmd_id = 3
         structure = rlp.sedes.CountableList(BlockProposal)
@@ -100,7 +100,7 @@ class HDCProtocol(BaseProtocol):
             """
             return rlp.encode([rlp.codec.RLPData(x) for x in list_of_rlp], infer_serializer=False)
 
-    class blockproposal(BaseProtocol.command):
+    class newblockproposal(BaseProtocol.command):
 
         """
         Specify a single BlockProposal that the peer should know about.

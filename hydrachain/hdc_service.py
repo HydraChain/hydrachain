@@ -266,45 +266,38 @@ class ChainService(eth_ChainService):
 
     # blocks / proposals ################
 
-    def receive_message(self, peer, m):
-        self.log('receive', msg=m)
-        self.messages_received.append(m)
-        assert isinstance(m, Message)
-        if isinstance(m, Vote):
-            self.add_vote(m)
-        elif isinstance(m, Proposal):
-            self.add_proposal(m)
-        elif isinstance(m, BlockRequest):
-            self.receive_block_request(peer, m)
-        elif isinstance(m, BlockReply):
-            self.add_block(m.block)
-        else:
-            raise Exception('unhandled message')
-        self.process()
-
-    def on_receive_getblocks(self, proto, blockrequests):
+    def on_receive_getblockproposals(self, proto, blockrequests):
         log.debug('----------------------------------')
-        log.debug("on_receive_getblocks", count=len(blockrequests))
-        # integers
+        log.debug("on_receive_getblockproposals", count=len(blockrequests))
         found = []
-        blockhash = blockrequest.blockhash
-        b = self.get_block(blockhash)
-        if b:
-            self.env.send(self, peer, BlockReply(b, id(blockrequest)))  # filter id
-
-        for bh in blockhashes[:self.wire_protocol.max_getblocks_count]:
-            try:
-                found.append(self.chain.db.get(bh))
-            except KeyError:
-                log.debug("unknown block requested", block_hash=encode_hex(bh))
+        for i, height in blockrequests:
+            if i == self.wire_protocol.max_getproposals_count:
+                break
+            assert isinstance(height, int)  # integers
+            assert i == 0 or height > blockrequests[i - 1]   # sorted
+            if height > self.chain.head.number:
+                log.debug("unknown block requested", height=height)
+                break
+            found.append(self.consensus_manager.get_blockproposal_rlp_by_height(height))
         if found:
             log.debug("found", count=len(found))
-            proto.send_blocks(*found)
+            proto.send_blockproposals(*found)
 
-    def on_receive_blockproposal(self, proto, proposal):
+    def on_receive_blockproposals(self, proto, proposals):
+        log.debug('----------------------------------')
+        self.consensus_manager.log('received proposals', sender=proto)
+        log.debug("recv proposals", num=len(proposals), remote_id=proto)
+        # self.synchronizer.receive_newproposal(proto, proposal)
+        for p in proposals:
+            assert isinstance(p, BlockProposal)
+            assert isinstance(p.block.header, HDCBlockHeader)
+            self.consensus_manager.add_proposal(p)
+            self.consensus_manager.process()
+
+    def on_receive_newblockproposal(self, proto, proposal):
         log.debug('----------------------------------')
         self.consensus_manager.log('receive proposal', sender=proto)
-        log.debug("recv newproposal", proposal=proposal, remote_id=proto)
+        log.debug("recv newblockproposal", proposal=proposal, remote_id=proto)
         # self.synchronizer.receive_newproposal(proto, proposal)
         assert isinstance(proposal, BlockProposal)
         assert isinstance(proposal.block.header, HDCBlockHeader)
@@ -318,11 +311,15 @@ class ChainService(eth_ChainService):
         self.consensus_manager.add_proposal(votinginstruction)
         self.consensus_manager.process()
 
+    #  votes
+
     def on_receive_vote(self, proto, vote):
         log.debug('----------------------------------')
         log.debug("recv vote", vote=vote, remote_id=proto)
         self.consensus_manager.add_vote(vote)
         self.consensus_manager.process()
+
+    #  start
 
     def on_receive_status(self, proto, eth_version, network_id, genesis_hash, current_lockset):
         log.debug('----------------------------------')
@@ -352,7 +349,7 @@ class ChainService(eth_ChainService):
         p = self.consensus_manager.last_blockproposal
         if p:
             self.consensus_manager.log('sending proposal', p=p)
-            proto.send_blockproposal(p)
+            proto.send_newblockproposal(p)
 
         # send transactions
         transactions = self.chain.get_transactions()
@@ -367,8 +364,9 @@ class ChainService(eth_ChainService):
         # register callbacks
         proto.receive_status_callbacks.append(self.on_receive_status)
         proto.receive_transactions_callbacks.append(self.on_receive_transactions)
-        proto.receive_blocks_callbacks.append(self.on_receive_blocks)
-        proto.receive_blockproposal_callbacks.append(self.on_receive_blockproposal)
+        proto.receive_blockproposals_callbacks.append(self.on_receive_blockproposals)
+        proto.receive_getblockproposals_callbacks.append(self.on_receive_getblockproposals)
+        proto.receive_newblockproposal_callbacks.append(self.on_receive_newblockproposal)
         proto.receive_votinginstruction_callbacks.append(self.on_receive_votinginstruction)
         proto.receive_vote_callbacks.append(self.on_receive_vote)
 
@@ -443,7 +441,13 @@ class ChainService(eth_ChainService):
         return int(self.processed_gas / (0.001 + self.processed_elapsed))
 
     def broadcast(self, obj, origin_proto=None):
-        fmap = {BlockProposal: 'blockproposal', VoteBlock: 'vote', VoteNil: 'vote',
+        """
+        idea: send broadcast filters to all peers.
+        - whenever the set of peers changes
+        - create range filters by dividing the 2**256 space by the set of synced peers
+        - send range filters to those peers
+        """
+        fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
                 VotingInstruction: 'votinginstruction', Transaction: 'transaction'}
         if not self.broadcast_filter.update(obj.hash):
             log.debug('already broadcasted', obj=obj)
