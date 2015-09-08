@@ -134,7 +134,8 @@ class ConsensusManager(object):
 
     def __repr__(self):
         return '<CP A:%r H:%d R:%d L:%r %s>' % (phx(self.coinbase), self.height, self.round,
-                                                self.last_lock, self.active_round.lockset.state)
+                                                self.active_round.lock,
+                                                self.active_round.lockset.state)
 
     def log(self, tag, **kargs):
         # if self.coinbase != 0: return
@@ -213,7 +214,7 @@ class ConsensusManager(object):
             # validation
             if p.height > self.height:
                 self.log('proposal from the future, not in sync', p=p)
-                return
+                return  # note: we are not broadcasting this, as we could not validate
             blk = self.chainservice.link_block(p.block)
             if not check(blk):
                 # safeguard for forks:
@@ -516,7 +517,8 @@ class RoundManager(object):
         round_lockset = self.cm.last_valid_lockset
         self.log('in creating proposal', round_lockset=round_lockset)
 
-        if round_lockset.has_quorum:
+        if round_lockset == self.lockset and round_lockset.has_quorum:
+            self.log('current lockset has quorum not proposing')
             return
         elif self.round == 0 or round_lockset.has_noquorum:
             proposal = self.mk_proposal()
