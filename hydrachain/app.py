@@ -97,7 +97,7 @@ def rundummy(ctx, num_validators, node_num, seed):
     # set ports based on node
     config['discovery']['listen_port'] = base_port + node_num
     config['p2p']['listen_port'] = base_port + node_num
-    config['p2p']['min_peers'] = 1
+    config['p2p']['min_peers'] = 2
     config['jsonrpc']['listen_port'] += node_num
 
     # create app

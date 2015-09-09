@@ -27,7 +27,10 @@ class Synchronizer(object):
 
     @property
     def missing(self):
-        max_height = self.cm.highest_committing_lockset.height
+        ls = self.cm.highest_committing_lockset
+        if not ls:
+            return []
+        max_height = ls.height
         if not max_height or max_height <= self.cm.head.number:
             return []
         return range(self.cm.head.number + 1, max_height + 1)

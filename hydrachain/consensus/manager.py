@@ -35,39 +35,46 @@ class MissingParent(Exception):
 
 
 class ProtocolFailureEvidence(object):
+    protocol = None
     evidence = None
 
     def __repr__(self):
-        return '<%s evidence=%r>' % (self.__class__.__name__, self.evidence)
+        return '<%s protocol=%r evidence=%r>' % (self.__class__.__name__,
+                                                 self.protocol, self.evidence)
 
 
 class InvalidProposalEvidence(ProtocolFailureEvidence):
 
-    def __init__(self, proposal):
+    def __init__(self, protocol, proposal):
+        self.protocol = protocol
         self.evidence = proposal
 
 
 class DoubleVotingEvidence(ProtocolFailureEvidence):
 
-    def __init__(self, vote, othervote):
+    def __init__(self, protocol, vote, othervote):
+        self.protocol = protocol
         self.evidence = (vote, othervote)
 
 
 class InvalidVoteEvidence(ProtocolFailureEvidence):
 
-    def __init__(self, vote):
+    def __init__(self, protocol, vote):
+        self.protocol = protocol
         self.evidence = vote
 
 
 class FailedToProposeEvidence(ProtocolFailureEvidence):
 
-    def __init__(self, round_lockset):
+    def __init__(self, protocol, round_lockset):
+        self.protocol = protocol
         self.evidence = round_lockset
 
 
 class ForkDetectedEvidence(ProtocolFailureEvidence):
 
-    def __init__(self, prevblock, block, committing_lockset):
+    def __init__(self, protocol, prevblock, block, committing_lockset):
+        self.protocol = protocol
         self.evidence = (prevblock, block, committing_lockset)
 
 
@@ -85,6 +92,10 @@ class ConsensusManager(object):
 
         self.tracked_protocol_failures = list()
 
+        assert self.contract.isvalidator(self.coinbase)
+        self.initialize_locksets()
+
+    def initialize_locksets(self):
         # sign genesis
 
         v = self.sign(VoteBlock(0, 0, self.chainservice.chain.genesis.hash))
@@ -94,15 +105,36 @@ class ConsensusManager(object):
         head_proposal = self.load_proposal(self.head.hash)
         #assert head_proposal
         if head_proposal:
+            assert head_proposal.blockhash == self.head.hash
             for v in head_proposal.signing_lockset:
-                self.add_vote(v)
-
+                self.add_vote(v)  # head - 1 , height -2
+            assert self.heights[self.head.header.number - 1].has_quorum
+        last_committing_lockset = self.load_last_committing_lockset()
+        if last_committing_lockset:
+            assert last_committing_lockset.has_quorum == self.head.hash
+            for v in last_committing_lockset.votes:
+                self.add_vote(v)  # head  , height - 1
+            assert self.heights[self.head.header.number].has_quorum
+        else:
+            assert self.head.header.number == 0
         assert self.highest_committing_lockset
+        assert self.last_committing_lockset
         assert self.last_valid_lockset
 
-        assert self.contract.isvalidator(self.coinbase)
+    # persist proposals and last committing lockset
 
-    # persist proposals
+    def store_last_committing_lockset(self, ls):
+        assert isinstance(ls, LockSet)
+        assert ls.has_quorum
+        self.chainservice.db.put('last_committing_lockset', rlp.encode(ls))
+
+    def load_last_committing_lockset(self):
+        try:
+            data = self.chainservice.db.get('last_committing_lockset')
+        except KeyError:
+            self.log('no last_committing_lockset could be loaded')
+            return
+        return rlp.decode(data, sedes=LockSet)
 
     def store_proposal(self, p):
         assert isinstance(p, BlockProposal)
@@ -166,7 +198,7 @@ class ConsensusManager(object):
         self.log('broadcasting', msg=m)
         self.chainservice.broadcast(m)
 
-    def add_vote(self, v):
+    def add_vote(self, v, proto=None):
         assert isinstance(v, Vote)
         assert self.contract.isvalidator(v.sender)
         # exception for externaly received votes signed by self, necessary for resyncing
@@ -175,7 +207,7 @@ class ConsensusManager(object):
             success = self.heights[v.height].add_vote(v, force_replace=is_own_vote)
         except DoubleVotingError:
             ls = self.heights[v.height].rounds[v.round].lockset
-            self.tracked_protocol_failures.append(DoubleVotingEvidence(v, ls))
+            self.tracked_protocol_failures.append(DoubleVotingEvidence(proto, v, ls))
             log.warn('double voting detected', vote=v, ls=ls)
         return success
 
@@ -185,7 +217,7 @@ class ConsensusManager(object):
 
         def check(valid):
             if not valid:
-                self.tracked_protocol_failures.append(InvalidProposalEvidence(p))
+                self.tracked_protocol_failures.append(InvalidProposalEvidence(None, proto, p))
                 log.warn('invalid proposal', p=p)
                 raise InvalidProposalError()
             return True
@@ -225,7 +257,7 @@ class ConsensusManager(object):
                 # if there is a quorum on a block which can not be applied: panic!
                 ls = self.heights[p.height].last_quorum_lockset
                 if ls and ls.has_quorum == p.blockhash:
-                    raise ForkDetectedEvidence((self.head, p, ls))
+                    raise ForkDetectedEvidence(proto, (self.head, p, ls))
                     sys.exit(1)
                 return
             p.block = blk  # block linked to chain
@@ -320,8 +352,10 @@ class ConsensusManager(object):
         self.log('in commit')
         for p in [c for c in self.block_candidates.values() if c.block.prevhash == self.head.hash]:
             assert isinstance(p, BlockProposal)
-            if self.heights[p.height].has_quorum == p.blockhash:
+            ls = self.heights[p.height].last_quorum_lockset
+            if ls and ls.has_quorum == p.blockhash:
                 self.store_proposal(p)
+                self.store_last_committing_lockset(ls)
                 success = self.chainservice.commit_block(p.block)
                 assert success
                 if success:
@@ -459,13 +493,14 @@ class RoundManager(object):
         try:
             success = self.lockset.add(v, force_replace)
         except InvalidVoteError:
-            self.cm.tracked_protocol_failures.append(InvalidVoteEvidence(v))
+            self.cm.tracked_protocol_failures.append(InvalidVoteEvidence(None, v))
             return
         # report failed proposer
         if self.lockset.is_valid:
             self.log('lockset is valid', ls=self.lockset)
             if not self.proposal and self.lockset.has_noquorum:
-                self.cm.tracked_protocol_failures.append(FailedToProposeEvidence(self.lockset))
+                self.cm.tracked_protocol_failures.append(
+                    FailedToProposeEvidence(None, self.lockset))
         return success
 
     def add_proposal(self, p):
@@ -519,6 +554,10 @@ class RoundManager(object):
             return
 
         round_lockset = self.cm.last_valid_lockset
+        if not round_lockset:
+            self.log('no valid round lockset for height')
+            return
+
         self.log('in creating proposal', round_lockset=round_lockset)
 
         if round_lockset.height == self.height and round_lockset.has_quorum:

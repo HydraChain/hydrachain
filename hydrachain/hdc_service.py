@@ -313,7 +313,7 @@ class ChainService(eth_ChainService):
             return
         log.debug('----------------------------------')
         log.debug("recv vote", vote=vote, remote_id=proto)
-        isvalid = self.consensus_manager.add_vote(vote)
+        isvalid = self.consensus_manager.add_vote(vote, proto)
         if isvalid:
             self.broadcast(vote, origin_proto=proto)
         self.consensus_manager.process()
@@ -338,7 +338,7 @@ class ChainService(eth_ChainService):
         if len(current_lockset):
             log.debug('adding received lockset', ls=current_lockset)
             for v in current_lockset.votes:
-                self.consensus_manager.add_vote(v)
+                self.consensus_manager.add_vote(v, proto)
 
         self.consensus_manager.process()
 
