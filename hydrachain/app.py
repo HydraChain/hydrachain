@@ -49,6 +49,8 @@ class HPCApp(pyethapp_app.EthApp):
     default_config['post_app_start_callback'] = None
 
 pyethapp_app.EthApp = HPCApp
+pyethapp_app.app.help = b'Welcome to %s' % HPCApp.client_version_string
+
 
 # set olympic profile
 for p in pyethapp_app.app.params:
@@ -58,7 +60,7 @@ for p in pyethapp_app.app.params:
 del PROFILES['olympic']['eth']['genesis_hash']
 
 
-@pyethapp_app.app.command()
+@pyethapp_app.app.command(help='run in a zero config default configuration')
 @click.option('num_validators', '--num_validators', '-v', multiple=False,
               type=int, default=3, help='number of validators')
 @click.option('node_num', '--node_num', '-n', multiple=False,
@@ -142,6 +144,9 @@ def rundummy(ctx, num_validators, node_num, seed):
     app.stop()
 
 
+def app():
+    pyethapp_app.app()
+
 if __name__ == '__main__':
     #  python app.py 2>&1 | less +F
-    pyethapp_app.app()
+    app()
