@@ -184,11 +184,11 @@ class ChainService(eth_ChainService):
         return time.time()
 
     def setup_alarm(self, delay, cb, *args):
-        log.DEV('setting up alarm')
+        log.debug('setting up alarm')
 
         def _trigger():
             gevent.sleep(delay)
-            log.DEV('alarm triggered')
+            log.debug('alarm triggered')
             cb(*args)
         gevent.spawn(_trigger)
 
