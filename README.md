@@ -71,9 +71,9 @@ Setup & Invocation
     > cd hydrachain
     > python setup.py develop
 
-    > hydrachain -d <datadir> rundummy --num_validators=3 --node_num=0 -- seed=42
+    > hydrachain -d <datadir> rundummy --num_validators=3 --node_num=0 --seed=42
 
-The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all node.
+The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all nodes.
 
 Status
 ------
