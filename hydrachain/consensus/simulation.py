@@ -393,7 +393,7 @@ def main(num_nodes=10, sim_duration=10, timeout=0.5,
          base_latency=0.05, latency_sigma_factor=0.5,
          num_faulty_nodes=3, num_slow_nodes=0):
 
-    network = Network(num_nodes)
+    network = Network(num_nodes, simenv=True)
     network.connect_nodes()
     network.normvariate_base_latencies(latency_sigma_factor, base_latency)
     network.disable_validators(num_faulty_nodes)
@@ -412,7 +412,7 @@ if __name__ == '__main__':
     slow_fraction = 1 / 3. * 0
 
     network = main(num_nodes=num_nodes,
-                   sim_duration=1,
+                   sim_duration=10,
                    timeout=0.5,
                    base_latency=0.05,
                    latency_sigma_factor=0.5,

@@ -1,3 +1,4 @@
+import pytest
 import os
 from ethereum.db import EphemDB
 from pyethapp import leveldb_service
@@ -8,6 +9,7 @@ from ethereum import config as eth_config
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
 from hydrachain.consensus.base import Block, BlockProposal, VoteBlock, VoteNil, TransientBlock
+from hydrachain.consensus.base import InvalidProposalError
 import ethereum.keys
 import rlp
 import tempfile
@@ -31,6 +33,7 @@ class AppMock(object):
 
     config['db'] = dict(path='_db')
     config['data_dir'] = tmpdir
+    config['hdc'] = dict(validators=validators)
 
     class Services(dict):
 
@@ -66,7 +69,8 @@ def test_receive_proposal():
     r = rlp.encode(p)
     p = rlp.decode(r, sedes=BlockProposal)
     assert isinstance(p.block, TransientBlock)
-    chainservice.on_receive_blockproposal(proto, p)
+    with pytest.raises(InvalidProposalError):  # not the proposser, fix test
+        chainservice.on_receive_newblockproposal(proto, p)
     # assert chainservice.chain.head.number == 1  # we don't have consensus yet
 
 

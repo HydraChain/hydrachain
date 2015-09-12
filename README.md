@@ -78,4 +78,4 @@ The `rundummy` command automatically configures a setup for `num_validator` node
 Status
 ------
 
- - 9.9.2015 - Initial release, work in progress
+ - 9.9.2015 - Initial release, work in progress. Note: This is not ready for production yet.

@@ -217,7 +217,7 @@ class ConsensusManager(object):
 
         def check(valid):
             if not valid:
-                self.tracked_protocol_failures.append(InvalidProposalEvidence(None, proto, p))
+                self.tracked_protocol_failures.append(InvalidProposalEvidence(None, p))
                 log.warn('invalid proposal', p=p)
                 raise InvalidProposalError()
             return True
