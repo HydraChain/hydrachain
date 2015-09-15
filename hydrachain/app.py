@@ -102,22 +102,59 @@ def rundummy(ctx, num_validators, node_num, seed):
     config['p2p']['min_peers'] = 2
     config['jsonrpc']['listen_port'] += node_num
 
+    _start_app(account, config, validators)
+
+
+@pyethapp_app.app.command(help='run in a zero config default configuration')
+@click.option('num_validators', '--num_validators', '-v', multiple=False,
+              type=int, default=3, help='number of validators')
+@click.option('node_num', '--node_num', '-n', multiple=False,
+              type=int, default=0, help='the node_num')
+@click.option('seed', '--seed', '-s', multiple=False,
+              type=int, default=42, help='the seed')
+@click.pass_context
+def runlocal(ctx, num_validators, node_num, seed):
+
+    assert node_num < num_validators
+
+    # reduce key derivation iterations
+    PBKDF2_CONSTANTS['c'] = 100
+
+    config = ctx.obj['config']
+
+    # create this node priv_key
+    config['node']['privkey_hex'] = mk_privkey('%d:udp:%d' % (seed, node_num)).encode('hex')
+
+    # create validator addresses
+    validators = [privtoaddr(mk_privkey('%d:account:%d' % (seed, i)))
+                  for i in range(num_validators)]
+    config['hdc']['validators'] = validators
+
+    # create this node account
+    account = Account.new(password='', key=mk_privkey('%d:account:%d' % (seed, node_num)))
+    assert account.address in validators
+
+    config['p2p']['min_peers'] = 2
+
+    _start_app(account, config, validators)
+
+
+def _start_app(account, config, validators):
     # create app
     app = HPCApp(config)
-
     # development mode
     if True:
         gevent.get_hub().SYSTEM_ERROR = BaseException
 
     # dump config
     pyethapp_app.dump_config(config)
-
     # init accounts first, as we need (and set by copy) the coinbase early FIXME
     if AccountsService in services:
         AccountsService.register_with_app(app)
     # add account
     app.services.accounts.add_account(account, store=False)
 
+    assert app.services.accounts.coinbase in validators
     # register services
     for service in services:
         assert issubclass(service, BaseService)
@@ -129,7 +166,6 @@ def rundummy(ctx, num_validators, node_num, seed):
     # start app
     log.info('starting')
     app.start()
-
     if config['post_app_start_callback'] is not None:
         config['post_app_start_callback'](app)
 
@@ -139,7 +175,6 @@ def rundummy(ctx, num_validators, node_num, seed):
     gevent.signal(signal.SIGTERM, evt.set)
     gevent.signal(signal.SIGINT, evt.set)
     evt.wait()
-
     # finally stop
     app.stop()
 

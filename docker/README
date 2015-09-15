@@ -1,0 +1,33 @@
+Running a local network with docker
+===================================
+
+Prerequisites
+-------------
+
+- docker-compose
+
+
+Note: The following commands all have to be run from within the
+docker/dev/hydrachain directory
+
+
+Building the containers
+-----------------------
+
+    $ docker-compose build
+
+
+Running the network
+-------------------
+
+    $ docker-compose scale statsmon=1 nodes=10
+
+
+Stopping & removing the containers
+----------------------------------
+
+    $ docker-compose stop && docker-compose rm
+
+
+To restart with new code simply stop, rm and restart there is no need to 
+rebuild the images.
