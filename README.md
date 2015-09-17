@@ -12,7 +12,7 @@ HydraChain is 100% compatible on an API and contract level. Existing tool chains
 
 **Accountable Validators**
 
-The main difference is a [*byzantine fault tolerant consensus*](https://en.wikipedia.org/wiki/Byzantine_fault_tolerance) protocol which does not depend on proof-of-work. Instead it relies on a registered and accountable set of validators which propose and validate the order of transactions.
+The main difference is the byzantine fault tolerant consensus protocol ([*detailed here*](https://github.com/HydraChain/hydrachain/blob/master/hc_consensus_explained.md)) which does not depend on proof-of-work. Instead it relies on a registered and accountable set of validators which propose and validate the order of transactions.
 
 **Instant Finality**
 
