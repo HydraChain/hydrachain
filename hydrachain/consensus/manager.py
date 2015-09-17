@@ -260,6 +260,8 @@ class ConsensusManager(object):
                     raise ForkDetectedEvidence(proto, (self.head, p, ls))
                     sys.exit(1)
                 return
+            p.mutable_ = True
+            p.rlp_ = None
             p.block = blk  # block linked to chain
             self.log('successfully linked block')
             self.add_block_proposal(p)  # implicitly checks the votes validity
