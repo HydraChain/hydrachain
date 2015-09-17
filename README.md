@@ -32,7 +32,7 @@ Many aspects of the system can be freely configured to fit custom needs. For exa
 
 **Easy Deployment**
 
-Setting up a test network can be done with almost zero configuration.  [Dockerfile](https://docs.docker.com/reference/builder/) templates are available.
+Setting up a test network can be done with almost zero configuration. [Dockerfile templates](https://github.com/HydraChain/hydrachain/tree/master/docker) are available.
 
 **Open Source**
 
