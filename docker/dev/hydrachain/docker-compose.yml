@@ -1,0 +1,14 @@
+node:
+  build: node
+  links:
+    - statsmon
+  volumes:
+    - ../../../../hydrachain:/hydrachain.src:ro
+
+statsmon:
+  build: statsmon
+  container_name: statsmon
+  environment:
+    - WS_SECRET=eth-net-stats-has-a-secret
+  ports:
+    - "3000:3000"
