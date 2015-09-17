@@ -4,6 +4,7 @@ Running a local network with docker
 Prerequisites
 -------------
 
+- docker
 - docker-compose
 
 
@@ -11,16 +12,32 @@ Note: The following commands all have to be run from within the
 docker/dev/hydrachain directory
 
 
-Building the containers
------------------------
+Building the images
+-------------------
 
     $ docker-compose build
+
+This will take a while the first time you run this command since it downloads
+and compiles all dependencies.
+
+Subsequent runs will be significantly faster due to docker caching the build
+steps.
+
+Sometimes it may be necessary to temporarily disable this cache (e.g. when
+you want to forcefully update the dependencies) this can be done with the
+following command:
+
+    $ docker-compose build --no-cache
 
 
 Running the network
 -------------------
 
     $ docker-compose scale statsmon=1 nodes=10
+
+This will start 10 node and one status monitor containers.
+The status monitor's web interface will be accessible on port 3000.
+
 
 
 Stopping & removing the containers
@@ -29,5 +46,7 @@ Stopping & removing the containers
     $ docker-compose stop && docker-compose rm
 
 
-To restart with new code simply stop, rm and restart there is no need to 
+To restart with new (hydrachain) code simply stop, rm and restart there is no need to
 rebuild the images.
+
+To update the dependencies you will however need to rebuild the image (see above).
