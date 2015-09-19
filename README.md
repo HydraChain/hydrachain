@@ -1,6 +1,8 @@
 HydraChain
 ==========
 
+[![Join the chat at https://gitter.im/HydraChain/hydrachain](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/HydraChain/hydrachain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 HydraChain is an extension of the [Ethereum](https://ethereum.org/) platform which adds support for creating [*Permissioned Distributed Ledgers*](http://www.ofnumbers.com/2015/04/06/consensus-as-a-service-a-brief-report-on-the-emergence-of-permissioned-distributed-ledger-systems/). Its primary domain of application are [*private chain* or *consortium chain*](https://blog.ethereum.org/2015/08/07/on-public-and-private-blockchains/) setups.
 
 Features
