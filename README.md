@@ -77,7 +77,7 @@ Setup & Invocation
 
 The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all nodes.
 
-Status
-------
-
- - 9.9.2015 - Initial release, work in progress. Note: This is not ready for production yet.
+Status: Work in Progress
+------------------------
+ - 18.9.2015 - Added zero config docker compose files
+ - 9.9.2015 - Initial release, work in progress. 
