@@ -17,8 +17,8 @@ Building the images
 
     $ docker-compose build
 
-This will take a while the first time you run this command since it downloads
-and compiles all dependencies.
+The first time you run this command will take a while since it downloads and
+compiles all dependencies.
 
 Subsequent runs will be significantly faster due to docker caching the build
 steps.
@@ -33,11 +33,16 @@ following command:
 Running the network
 -------------------
 
-    $ docker-compose scale statsmon=1 nodes=10
+    $ docker-compose scale statsmon=1 bootstrap=1 node=9
 
-This will start 10 node and one status monitor containers.
+This will start one bootstrap and 9 "regular" nodes as well as one status
+monitor container.
+
 The status monitor's web interface will be accessible on port 3000.
-
+The bootstrap node exposes the following ports:
+  - 30303/upd:  P2P discovery protocol
+  - 30303/tcp:  RLPX protocol
+  - 4000/tcp:   JSONRPC interface
 
 
 Stopping & removing the containers
@@ -50,3 +55,50 @@ To restart with new (hydrachain) code simply stop, rm and restart there is no ne
 rebuild the images.
 
 To update the dependencies you will however need to rebuild the image (see above).
+
+
+Connecting external nodes
+-------------------------
+
+To connect an external node (i.e. not running inside a docker container) to
+the network you will first need to stop one of the docker nodes to "make room":
+
+    $ docker stop hydrachain_node_1
+
+Next you need to find the arguments that were used to start that particular
+node:
+
+    $ docker logs hydrachain_node_1 2>&1 | grep "/usr/local/bin/hydrachain"
+
+This should result in something similar to:
+
+    /usr/local/bin/hydrachain \
+        --bootstrap_node enode://067fbe6672cbedbd7c023d88db1c0914145e6112c790574e5d64f5c128d38246d5ca7d1a0ccc85aff8fa7a4f0f02953e0ca52568751d4f2c8237898a6f89ea81@hydrachain_node_bootstrap:30303 \
+        -l:debug,jsonrpc:info runlocal \
+        --num_validators 3 \
+        --node_num 1 \
+        --seed 23
+
+Note: Be sure to use the output from your own system rather than the example
+      above sine otherwise the bootstrap node key won't match.
+
+You can use this command almost verbatim to run the external node. The only
+things that need to be changed are:
+  - The hostname in the `--bootstrap_node` argument.
+
+    The string "hydrachain_node_bootstrap" needs to be replaced by the
+    hostname / IP on which the exposed docker ports are opened.
+
+    If you are running docker natively on linux this will usually just be
+    "localhost".
+
+    If you are using boot2docker or docker-machine (including tools like
+    Kitematic) you can usually find the IP with one of the following commands:
+
+        $ docker-machine ip dev
+        $ boot2docker ip
+
+  - Specify the correct path to the executable.
+
+    If you intend to run a node from a local git checkout you will most likely
+    only need to remove the path "/usr/local/bin".
