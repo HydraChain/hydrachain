@@ -142,8 +142,9 @@ def runlocal(ctx, num_validators, node_num, seed):
 def _start_app(account, config, validators):
     # create app
     app = HPCApp(config)
+
     # development mode
-    if True:
+    if False:
         gevent.get_hub().SYSTEM_ERROR = BaseException
 
     # dump config
