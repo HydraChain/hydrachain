@@ -2,6 +2,8 @@
 set -e
 
 SEED=23
+# Wait for all nodes to come up
+/root/settle_file.py /etc/hosts
 HOST_BASE_NAME=hydrachain_node_
 
 OWN_IP=$(ip -o -4 addr show | awk -F '[ /]+' '/global/ {print $4}')

@@ -45,8 +45,10 @@ RUN pip install ecdsa-recover
 ADD start.sh /root/start.sh
 ADD app.json /root/eth-net-intelligence-api/app.json
 ADD mk_enode.py /root/mk_enode.py
+ADD settle_file.py /root/settle_file.py
 
 RUN chmod +x /root/start.sh
 RUN chmod +x /root/mk_enode.py
+RUN chmod +x /root/settle_file.py
 
 ENTRYPOINT /root/start.sh
