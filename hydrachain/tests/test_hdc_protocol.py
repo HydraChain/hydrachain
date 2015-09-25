@@ -105,13 +105,13 @@ def test_blocks():
     proto._receive_blockproposals(packet)
 
     _p, proposals = cb_data.pop()
-    assert isinstance(proposals, list)
+    assert isinstance(proposals, tuple)
     for proposal in proposals:
         assert isinstance(proposal, BlockProposal)
         assert proposal.height == proposal.block.header.number
         assert isinstance(proposal.block, TransientBlock)
-        assert isinstance(proposal.block.transaction_list, list)
-        assert isinstance(proposal.block.uncles, list)
+        assert isinstance(proposal.block.transaction_list, tuple)
+        assert isinstance(proposal.block.uncles, tuple)
         # assert that transactions and uncles have not been decoded
         assert len(proposal.block.transaction_list) == 0
         assert len(proposal.block.uncles) == 0
@@ -166,7 +166,7 @@ def test_getblockproposals():
     proto.receive_getblockproposals_callbacks.append(list_cb)
     proto._receive_getblockproposals(packet)
     _p, data = cb_data.pop()
-    assert data == payload
+    assert data == tuple(payload)
 
 
 def test_vote():
