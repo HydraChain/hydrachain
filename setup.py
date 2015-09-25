@@ -52,7 +52,6 @@ setup(
         'hydrachain',
         'hydrachain.consensus'
     ],
-    #    package_dir={'hydrachain': 'hydrachain'},
     include_package_data=True,
     license="BSD",
     zip_safe=False,
