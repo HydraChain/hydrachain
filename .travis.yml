@@ -1,6 +1,11 @@
 language: python
+sudo: false
 env:
   - TOXENV=py27
+addons:
+  apt:
+    packages:
+    - libgmp3-dev
 install:
   - pip install tox
   - pip install coveralls
