@@ -1,4 +1,5 @@
-pyethapp>=1.0.3
+rlp>=0.4.0
+pyethapp>=1.0.4
 ecdsa-recover
 simpy
 pytest
