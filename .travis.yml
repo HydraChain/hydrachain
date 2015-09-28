@@ -9,5 +9,5 @@ addons:
 install:
   - pip install tox
   - pip install coveralls
-script: tox
+script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_basics.py --ignore hydrachain/tests/test_sim_syncing.py
 after_success: coveralls
