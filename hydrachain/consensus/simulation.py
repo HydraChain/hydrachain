@@ -167,7 +167,7 @@ class PeerManagerMock(object):
         for p in self.peers:
             assert p.coinbase == self.coinbase
             assert p.peer.coinbase != self.coinbase
-            assert isinstance(p.protocol, protocol)
+            assert isinstance(p.protocol, (protocol, hdc_protocol.HDCProtocol))
             if not exclude_peers or p not in exclude_peers:
                 log.debug('broadcasting', sender=self, receiver=p, obj=args)
                 func = getattr(p.protocol, 'send_' + command_name)
@@ -214,6 +214,9 @@ class AppMock(object):
         self.config['db'] = dict(path='_db')
         self.config['data_dir'] = tempfile.mkdtemp()
         self.config['hdc']['validators'] = validators
+
+        initial_alloc = dict((a, dict(wei=2**200)) for a in validators)
+        self.config['eth']['block']['GENESIS_INITIAL_ALLOC'] = initial_alloc
 
         self.simenv = simenv
         self.services = self.Services()
