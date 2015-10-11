@@ -1,7 +1,8 @@
 # Copyright (c) 2015 Heiko Hees
 try:
-    from ecdsa_recover import ecdsa_raw_sign, ecdsa_raw_recover
+    from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover
 except ImportError:
+    print 'Warning falling back to pybitcointools'
     from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover
 from collections import Counter
 from ethereum.blocks import Block
