@@ -1,5 +1,6 @@
 rlp>=0.4.0
 pyethapp>=1.0.4
-ecdsa-recover
+c_secp256k1
+bitcoin
 simpy
 pytest

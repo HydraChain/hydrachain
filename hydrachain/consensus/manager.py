@@ -80,6 +80,9 @@ class ForkDetectedEvidence(ProtocolFailureEvidence):
 
 class ConsensusManager(object):
 
+    allow_empty_blocks = False
+    num_initial_blocks = 100
+
     def __init__(self, chainservice, consensus_contract, privkey):
         self.chainservice = chainservice
         self.chain = chainservice.chain
@@ -96,8 +99,8 @@ class ConsensusManager(object):
         self.initialize_locksets()
 
     def initialize_locksets(self):
+        log.debug('initializing locksets')
         # sign genesis
-
         v = self.sign(VoteBlock(0, 0, self.chainservice.chain.genesis.hash))
         self.add_vote(v)
 
@@ -329,17 +332,35 @@ class ConsensusManager(object):
                      delay=delay, triggered=delay + self.chainservice.now)
 
     def on_alarm(self, ar):
-        # self.log('on alarm')
+        self.log('on alarm')
         assert isinstance(ar, RoundManager)
         if self.active_round == ar:
             self.log('on alarm, matched', ts=self.chainservice.now)
-            self.process()
+            # defer alarm if there are no pending transactions
+            if not self.is_waiting_for_proposal:
+                self.log('no txs defering alarm', ts=self.chainservice.now)
+                self.active_round.timeout_time = None  # cancel alarm
+                self.setup_alarm()
+            else:
+                self.process()
+
+    @property
+    def is_waiting_for_proposal(self):
+        return self.allow_empty_blocks \
+            or self.has_pending_transactions \
+            or self.height <= self.num_initial_blocks
+
+    @property
+    def has_pending_transactions(self):
+        return self.chain.head_candidate.num_transactions() > 0
 
     def process(self):
+        self.log('-' * 40)
         self.log('in process')
         self.commit()
         self.heights[self.height].process()
-        self.commit()
+        if self.commit():  # re enter process if we did commit (e.g. to immediately propose)
+            return self.process()
         self.cleanup()
         self.synchronizer.process()
         self.setup_alarm()
@@ -363,8 +384,8 @@ class ConsensusManager(object):
                 if success:
                     self.log('commited', p=p, hash=phx(p.blockhash))
                     assert self.head == p.block
-                    self.commit()
-                    return
+                    self.commit()  # commit all possible
+                    return True
                 else:
                     self.log('could not commit', p=p)
             else:
@@ -546,6 +567,8 @@ class RoundManager(object):
         return bp
 
     def propose(self):
+        if not self.cm.is_waiting_for_proposal:
+            return
         proposer = self.cm.contract.proposer(self.height, self.round)
         self.log('in propose', proposer=phx(proposer), proposal=self.proposal, lock=self.lock)
         if proposer != self.cm.coinbase:

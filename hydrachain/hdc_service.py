@@ -163,8 +163,10 @@ class ChainService(eth_ChainService):
         self.consensus_contract = ConsensusContract(validators=self.config['hdc']['validators'])
         self.consensus_manager = ConsensusManager(self, self.consensus_contract,
                                                   self.consensus_privkey)
-        #  self.consensus_manager.process()
-        #  ConsensusManager is started once a peer connects and status_message is received
+
+    def start(self):
+        super(ChainService, self).start()
+        self.consensus_manager.process()
 
     # interface accessed by ConensusManager
 
@@ -241,6 +243,10 @@ class ChainService(eth_ChainService):
     @property
     def is_syncing(self):
         return self.consensus_manager.synchronizer.is_syncing
+
+    @property
+    def is_mining(self):
+        return self.chain.coinbase in self.config['hdc']['validators']
 
     # wire protocol receivers ###########
 
