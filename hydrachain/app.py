@@ -112,15 +112,32 @@ def rundummy(ctx, num_validators, node_num, seed):
               type=int, default=0, help='the node_num')
 @click.option('seed', '--seed', '-s', multiple=False,
               type=int, default=42, help='the seed')
+@click.option('--nodial/--dial',  default=False, help='do not dial nodes')
 @click.pass_context
-def runlocal(ctx, num_validators, node_num, seed):
+def runlocal(ctx, num_validators, node_num, seed, nodial):
 
     assert node_num < num_validators
 
     # reduce key derivation iterations
     PBKDF2_CONSTANTS['c'] = 100
-
     config = ctx.obj['config']
+    config, account = _configure_node_network(config, num_validators, node_num, seed)
+
+    config['p2p']['min_peers'] = 2
+
+    if nodial:
+        config['discovery']['bootstrap_nodes'] = []
+        config['p2p']['min_peers'] = 0
+
+    app = _start_app(config, account)
+    _start_node(app)
+
+
+def _configure_node_network(config, num_validators, node_num, seed):
+    assert node_num < num_validators
+
+    # reduce key derivation iterations
+    PBKDF2_CONSTANTS['c'] = 100
 
     # create this node priv_key
     config['node']['privkey_hex'] = mk_privkey('%d:udp:%d' % (seed, node_num)).encode('hex')
@@ -133,13 +150,10 @@ def runlocal(ctx, num_validators, node_num, seed):
     # create this node account
     account = Account.new(password='', key=mk_privkey('%d:account:%d' % (seed, node_num)))
     assert account.address in validators
-
-    config['p2p']['min_peers'] = 2
-
-    _start_app(account, config, validators)
+    return config, account
 
 
-def _start_app(account, config, validators):
+def _start_app(config, account):
     # create app
     app = HPCApp(config)
 
@@ -155,7 +169,7 @@ def _start_app(account, config, validators):
     # add account
     app.services.accounts.add_account(account, store=False)
 
-    assert app.services.accounts.coinbase in validators
+    assert app.services.accounts.coinbase in config['hdc']['validators']
     # register services
     for service in services:
         assert issubclass(service, BaseService)
@@ -169,7 +183,10 @@ def _start_app(account, config, validators):
     app.start()
     if config['post_app_start_callback'] is not None:
         config['post_app_start_callback'](app)
+    return app
 
+
+def _start_node(app):
     # wait for interrupt
     evt = Event()
     gevent.signal(signal.SIGQUIT, evt.set)
