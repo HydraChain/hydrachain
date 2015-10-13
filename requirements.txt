@@ -3,3 +3,4 @@ pyethapp>=1.0.4
 bitcoin
 simpy
 pytest
+serpent
