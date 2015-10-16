@@ -3,6 +3,10 @@ HydraChain
 
 [![Join the chat at https://gitter.im/HydraChain/hydrachain](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/HydraChain/hydrachain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/HydraChain/hydrachain.svg?branch=master)](https://travis-ci.org/HydraChain/hydrachain)
+[![Coverage Status](https://coveralls.io/repos/HydraChain/hydrachain/badge.svg?branch=master&service=github)](https://coveralls.io/github/HydraChain/hydrachain?branch=master)
+[![Code Climate](https://codeclimate.com/github/HydraChain/hydrachain/badges/gpa.svg)](https://codeclimate.com/github/HydraChain/hydrachain)
+![Python Versions](https://img.shields.io/badge/Python-2.7-green.svg)
+![License](https://img.shields.io/badge/license-BSD-blue.svg)
 
 HydraChain is an extension of the [Ethereum](https://ethereum.org/) platform which adds support for creating [*Permissioned Distributed Ledgers*](http://www.ofnumbers.com/2015/04/06/consensus-as-a-service-a-brief-report-on-the-emergence-of-permissioned-distributed-ledger-systems/). Its primary domain of application are [*private chain* or *consortium chain*](https://blog.ethereum.org/2015/08/07/on-public-and-private-blockchains/) setups.
 
@@ -80,5 +84,6 @@ The `rundummy` command automatically configures a setup for `num_validator` node
 
 Status: Work in Progress
 ------------------------
- - 18.9.2015 - Added zero config docker compose files
- - 9.9.2015 - Initial release, work in progress.
+ - 16.10.2015 - v.0.0.3 - Update docker configuration
+ - 18.09.2015 - Added zero config docker compose files
+ - 09.09.2015 - Initial release, work in progress.

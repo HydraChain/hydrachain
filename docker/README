@@ -17,8 +17,8 @@ Building the images
 
     $ docker-compose build
 
-The first time you run this command will take a while since it downloads and
-compiles all dependencies.
+The first time you run this command will take quite a while since it downloads
+and compiles all dependencies.
 
 Subsequent runs will be significantly faster due to docker caching the build
 steps.
@@ -102,3 +102,11 @@ things that need to be changed are:
 
     If you intend to run a node from a local git checkout you will most likely
     only need to remove the path "/usr/local/bin".
+
+
+Development
+-----------
+
+The start script in the node image copies the hydrachain source code into the
+container on each start. That means that changes to the hydrachain source
+doesn't necessitate rebuilding the image.
