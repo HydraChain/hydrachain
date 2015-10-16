@@ -33,11 +33,13 @@ cd /root/eth-net-intelligence-api
 perl -pi -e "s/XXX/${OWN_NAME}/g" app.json
 /usr/bin/pm2 start ./app.json
 
-pip uninstall -y pyethapp
-rm -rf /pyethapp
-cp -a /pyethapp.src /pyethapp
-cd /pyethapp
-pip install -e .
+if [ -f /pyethapp.src/setup.py ]; then
+    pip uninstall -y pyethapp
+
+    rsync -a --delete /pyethapp.src/* /pyethapp/
+    cd /pyethapp
+    pip install -e .
+fi
 
 cp -a /hydrachain.src /hydrachain
 cd /hydrachain

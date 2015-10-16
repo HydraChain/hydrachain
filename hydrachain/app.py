@@ -56,8 +56,6 @@ pyethapp_app.app.help = b'Welcome to %s' % HPCApp.client_version_string
 for p in pyethapp_app.app.params:
     if p.name == 'profile':
         p.default = 'morden'
-# delete genesis hash, as it is currently
-# del PROFILES['olympic']['eth']['genesis_hash']
 
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')

@@ -1,6 +1,7 @@
 rlp>=0.4.0
-pyethapp>=1.0.4
+pyethapp>=1.0.5
 bitcoin
+ecdsa-recover
 simpy
 pytest
 serpent
