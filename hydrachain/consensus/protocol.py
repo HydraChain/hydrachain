@@ -49,7 +49,7 @@ class HDCProtocol(BaseProtocol):
 
         def create(self, proto, genesis_hash, current_lockset):
             self.sent = True
-            network_id = proto.service.app.config['hdc'].get('network_id', proto.network_id)
+            network_id = proto.service.app.config['eth'].get('network_id', proto.network_id)
             return [proto.version, network_id, genesis_hash, current_lockset]
 
     class transactions(BaseProtocol.command):
