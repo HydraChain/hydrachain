@@ -100,7 +100,8 @@ def rundummy(ctx, num_validators, node_num, seed):
     config['p2p']['min_peers'] = 2
     config['jsonrpc']['listen_port'] += node_num
 
-    _start_app(account, config)
+    app = _start_app(config, account)
+    _start_node(app)
 
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')

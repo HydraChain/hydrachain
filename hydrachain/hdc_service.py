@@ -199,6 +199,7 @@ class ChainService(eth_ChainService):
         self.add_transaction_lock.acquire()
         success = self.chain.add_block(blk,  forward_pending_transactions=True)
         self.add_transaction_lock.release()
+        log.info('new head', head=self.chain.head)
         return success
 
     def link_block(self, t_block):
