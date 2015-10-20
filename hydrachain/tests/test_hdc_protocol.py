@@ -23,7 +23,7 @@ class PeerMock(object):
 def setup():
     peer = PeerMock()
     proto = HDCProtocol(peer, WiredService(BaseApp()))
-    proto.service.app.config['hdc'] = dict(network_id=1337)
+    proto.service.app.config['eth'] = dict(network_id=1337)
     chain = tester.state()
     cb_data = []
 
