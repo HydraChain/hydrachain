@@ -3,10 +3,6 @@ HydraChain
 
 [![Join the chat at https://gitter.im/HydraChain/hydrachain](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/HydraChain/hydrachain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/HydraChain/hydrachain.svg?branch=master)](https://travis-ci.org/HydraChain/hydrachain)
-[![Coverage Status](https://coveralls.io/repos/HydraChain/hydrachain/badge.svg?branch=master&service=github)](https://coveralls.io/github/HydraChain/hydrachain?branch=master)
-[![Code Climate](https://codeclimate.com/github/HydraChain/hydrachain/badges/gpa.svg)](https://codeclimate.com/github/HydraChain/hydrachain)
-![Python Versions](https://img.shields.io/badge/Python-2.7-green.svg)
-![License](https://img.shields.io/badge/license-BSD-blue.svg)
 
 HydraChain is an extension of the [Ethereum](https://ethereum.org/) platform which adds support for creating [*Permissioned Distributed Ledgers*](http://www.ofnumbers.com/2015/04/06/consensus-as-a-service-a-brief-report-on-the-emergence-of-permissioned-distributed-ledger-systems/). Its primary domain of application are [*private chain* or *consortium chain*](https://blog.ethereum.org/2015/08/07/on-public-and-private-blockchains/) setups.
 
@@ -77,10 +73,18 @@ Setup & Invocation
     > git clone https://github.com/HydraChain/hydrachain
     > cd hydrachain
     > python setup.py develop
+    > hydrachain -d <datadir> rundummy --num_validators=3 --seed=42 --node_num=0
 
-    > hydrachain -d <datadir> rundummy --num_validators=3 --node_num=0 --seed=42
+Example how to run three nodes in three terminals:
+    > hydrachain -d datadir0 rundummy --node_num=0
+    > hydrachain -d datadir1 rundummy --node_num=1
+    > hydrachain -d datadir2 rundummy --node_num=2
+
 
 The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all nodes.
+
+
+
 
 Status: Work in Progress
 ------------------------
