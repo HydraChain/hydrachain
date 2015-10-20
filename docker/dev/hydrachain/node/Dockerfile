@@ -39,7 +39,8 @@ RUN pip install -e .
 
 
 RUN pip install -U setuptools
-RUN pip install ecdsa-recover
+# Pre-install hydrachain dependency
+RUN pip install https://github.com/czepluch/pysecp256k1/tarball/master#egg=c-secp256k1
 
 
 ADD start.sh /root/start.sh
