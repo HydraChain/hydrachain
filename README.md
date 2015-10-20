@@ -76,6 +76,7 @@ Setup & Invocation
     > hydrachain -d <datadir> rundummy --num_validators=3 --seed=42 --node_num=0
 
 Example how to run three nodes in three terminals:
+    
     > hydrachain -d datadir0 rundummy --node_num=0
     > hydrachain -d datadir1 rundummy --node_num=1
     > hydrachain -d datadir2 rundummy --node_num=2
