@@ -8,7 +8,7 @@ RUN apt-get update &&\
 
 
 RUN apt-get update &&\
-    apt-get install -y build-essential libgmp-dev
+    apt-get install -y build-essential libgmp-dev rsync
 
 RUN cd /root &&\
     git clone https://github.com/cubedro/eth-net-intelligence-api &&\
