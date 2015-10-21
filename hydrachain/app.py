@@ -1,8 +1,8 @@
-import os
 import signal
 import sys
 import click
 import gevent
+import copy
 from gevent.event import Event
 from devp2p.service import BaseService
 from devp2p.peermanager import PeerManager
@@ -10,12 +10,12 @@ from devp2p.discovery import NodeDiscovery
 from devp2p.app import BaseApp
 from pyethapp.console_service import Console
 from pyethapp.db_service import DBService
-from pyethapp.profiles import PROFILES
 from pyethapp.jsonrpc import JSONRPCServer
 from pyethapp.accounts import AccountsService, Account
+import pyethapp.config as konfig
 import ethereum.slogging as slogging
 import pyethapp.app as pyethapp_app
-from pyethapp.accounts import mk_privkey, privtopub
+from pyethapp.accounts import mk_privkey
 from devp2p.crypto import privtopub as privtopub_raw
 from devp2p.utils import host_port_pubkey_to_uri
 from ethereum.keys import privtoaddr, PBKDF2_CONSTANTS
@@ -67,32 +67,16 @@ for p in pyethapp_app.app.params:
               type=int, default=42, help='the seed')
 @click.pass_context
 def rundummy(ctx, num_validators, node_num, seed):
+    base_port = 29870
 
     # reduce key derivation iterations
     PBKDF2_CONSTANTS['c'] = 100
 
     config = ctx.obj['config']
 
-    # create bootstrap node priv_key and enode
-    bootstrap_node_privkey = mk_privkey('%d:udp:%d' % (seed, 0))
-    bootstrap_node_pubkey = privtopub_raw(bootstrap_node_privkey)
-    assert len(bootstrap_node_pubkey) == 64,  len(bootstrap_node_pubkey)
-    base_port = 29870
-    host = b'0.0.0.0'
+    config['discovery']['bootstrap_nodes'] = [get_bootstrap_node(seed, base_port)]
 
-    bootstrap_node = host_port_pubkey_to_uri(host, base_port, bootstrap_node_pubkey)
-    config['discovery']['bootstrap_nodes'] = [bootstrap_node]
-
-    # create this node priv_key
-    config['node']['privkey_hex'] = mk_privkey('%d:udp:%d' % (seed, node_num)).encode('hex')
-
-    # create validator addresses
-    validators = [privtoaddr(mk_privkey('%d:account:%d' % (seed, i)))
-                  for i in range(num_validators)]
-    config['hdc']['validators'] = validators
-
-    # create this node account
-    account = Account.new(password='', key=mk_privkey('%d:account:%d' % (seed, node_num)))
+    config, account = _configure_node_network(config, num_validators, node_num, seed)
 
     # set ports based on node
     config['discovery']['listen_port'] = base_port + node_num
@@ -100,8 +84,43 @@ def rundummy(ctx, num_validators, node_num, seed):
     config['p2p']['min_peers'] = 2
     config['jsonrpc']['listen_port'] += node_num
 
-    app = _start_app(config, account)
-    _start_node(app)
+    app = start_app(config, account)
+    serve_until_stopped(app)
+
+
+@pyethapp_app.app.command(help='run multiple nodes in a zero config default configuration')
+@click.option('num_validators', '--num_validators', '-v', multiple=False,
+              type=int, default=3, help='number of validators')
+@click.option('seed', '--seed', '-s', multiple=False,
+              type=int, default=42, help='the seed')
+@click.pass_context
+def runmultiple(ctx, num_validators, seed):
+    base_port = 29870
+
+    # reduce key derivation iterations
+    PBKDF2_CONSTANTS['c'] = 100
+
+    config = ctx.obj['config']
+    config['discovery']['bootstrap_nodes'] = [get_bootstrap_node(seed, base_port)]
+
+    for node_num in range(num_validators):
+        n_config = copy.deepcopy(config)
+        n_config, account = _configure_node_network(n_config, num_validators, node_num, seed)
+        # set ports based on node
+        n_config['discovery']['listen_port'] = base_port + node_num
+        n_config['p2p']['listen_port'] = base_port + node_num
+        n_config['p2p']['min_peers'] = 2
+        n_config['jsonrpc']['listen_port'] += node_num
+
+        # have multiple datadirs
+        n_config['data_dir'] += str(node_num)
+        konfig.setup_data_dir(n_config['data_dir'])
+
+        # deactivate console (note: maybe this could work with one console)
+        n_config['deactivated_services'].append(Console.name)
+
+        app = start_app(n_config, account)
+    serve_until_stopped(app)
 
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')
@@ -128,8 +147,8 @@ def runlocal(ctx, num_validators, node_num, seed, nodial):
         config['discovery']['bootstrap_nodes'] = []
         config['p2p']['min_peers'] = 0
 
-    app = _start_app(config, account)
-    _start_node(app)
+    app = start_app(config, account)
+    serve_until_stopped(app)
 
 
 def _configure_node_network(config, num_validators, node_num, seed):
@@ -152,7 +171,7 @@ def _configure_node_network(config, num_validators, node_num, seed):
     return config, account
 
 
-def _start_app(config, account):
+def start_app(config, account):
     # create app
     app = HPCApp(config)
 
@@ -185,7 +204,7 @@ def _start_app(config, account):
     return app
 
 
-def _start_node(app):
+def serve_until_stopped(*apps):
     # wait for interrupt
     evt = Event()
     gevent.signal(signal.SIGQUIT, evt.set)
@@ -193,7 +212,15 @@ def _start_node(app):
     gevent.signal(signal.SIGINT, evt.set)
     evt.wait()
     # finally stop
-    app.stop()
+    for app in apps:
+        app.stop()
+
+
+def get_bootstrap_node(seed, base_port=29870, host=b'0.0.0.0'):
+    # create bootstrap node priv_key and enode
+    bootstrap_node_privkey = mk_privkey('%d:udp:%d' % (seed, 0))
+    bootstrap_node_pubkey = privtopub_raw(bootstrap_node_privkey)
+    return host_port_pubkey_to_uri(host, base_port, bootstrap_node_pubkey)
 
 
 def app():
