@@ -70,6 +70,8 @@ As the term *Hydra* in the name already hints, that the software will support to
 Setup & Invocation
 ------
 
+**Installation**
+
     > git clone https://github.com/HydraChain/hydrachain
     > cd hydrachain
     > python setup.py develop
@@ -92,6 +94,7 @@ Example how to run three nodes in three terminals:
 The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all nodes.
 
 **Multiple nodes in a single docker daemon**
+
 See the [Dockerfile templates](https://github.com/HydraChain/hydrachain/tree/master/docker)
 
 
