@@ -73,22 +73,32 @@ Setup & Invocation
     > git clone https://github.com/HydraChain/hydrachain
     > cd hydrachain
     > python setup.py develop
+
+**Multiple nodes in a single process**
+
+    > hydrachain -d datadir runmultiple --num_validators=3 --seed=42
+
+
+**Multiple nodes in multiple processes on the same machine**
+
     > hydrachain -d <datadir> rundummy --num_validators=3 --seed=42 --node_num=0
 
 Example how to run three nodes in three terminals:
-    
+
     > hydrachain -d datadir0 rundummy --node_num=0
     > hydrachain -d datadir1 rundummy --node_num=1
     > hydrachain -d datadir2 rundummy --node_num=2
 
-
 The `rundummy` command automatically configures a setup for `num_validator` nodes (instances of the application) which are running on the same machine. The node id of each instance can be specified by `--node_num=<int>` and `--seed=<int>` can be used to configure a different set of keys for all nodes.
 
+**Multiple nodes in a single docker daemon**
+See the [Dockerfile templates](https://github.com/HydraChain/hydrachain/tree/master/docker)
 
 
 
 Status: Work in Progress
 ------------------------
+ - 21.10.2015 - v.0.0.4 - Run multiple node instances in the same process
  - 16.10.2015 - v.0.0.3 - Update docker configuration
  - 18.09.2015 - Added zero config docker compose files
  - 09.09.2015 - Initial release, work in progress.

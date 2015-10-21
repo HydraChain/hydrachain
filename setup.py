@@ -38,7 +38,7 @@ install_requires = [install_requires_replacements.get(r, r) for r in install_req
 
 test_requirements = ['ethereum-serpent>=1.8.1']
 
-version = '0.0.2'  # preserve format, this is read from __init__.py
+version = '0.0.4'  # preserve format, this is read from __init__.py
 
 setup(
     name='hydrachain',
@@ -53,13 +53,13 @@ setup(
         'hydrachain.consensus'
     ],
     include_package_data=True,
-    license="BSD",
+    license="MIT",
     zip_safe=False,
     keywords='hydrachain',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         "Programming Language :: Python :: 2",
         'Programming Language :: Python :: 2.7',
