@@ -125,7 +125,7 @@ def runmultiple(ctx, num_validators, seed):
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')
 @click.option('num_validators', '--num_validators', '-v', multiple=False,
-              type=int, default=3, help='number of validators')
+              type=int, default=4, help='number of validators')
 @click.option('node_num', '--node_num', '-n', multiple=False,
               type=int, default=0, help='the node_num')
 @click.option('seed', '--seed', '-s', multiple=False,
@@ -135,9 +135,9 @@ def runmultiple(ctx, num_validators, seed):
 def runlocal(ctx, num_validators, node_num, seed, nodial):
 
     assert node_num < num_validators
+    assert num_validators >= 4
 
     # reduce key derivation iterations
-    PBKDF2_CONSTANTS['c'] = 100
     config = ctx.obj['config']
     config, account = _configure_node_network(config, num_validators, node_num, seed)
 
