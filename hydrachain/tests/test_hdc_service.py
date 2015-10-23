@@ -1,15 +1,19 @@
+import tempfile
+
+import ethereum.keys
 import pytest
-from ethereum.db import EphemDB
-from pyethapp.accounts import Account, AccountsService
+import rlp
 from ethereum import slogging
 from ethereum import utils
+from ethereum.db import EphemDB
+from pyethapp.accounts import Account, AccountsService
+
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
-from hydrachain.consensus.base import Block, BlockProposal, TransientBlock
-from hydrachain.consensus.base import InvalidProposalError, LockSet, Ready
-import ethereum.keys
-import rlp
-import tempfile
+from hydrachain.consensus.base import (Block, BlockProposal, TransientBlock, InvalidProposalError,
+                                       LockSet, Ready)
+
+
 slogging.configure(config_string=':info')
 
 # reduce key derivation iterations

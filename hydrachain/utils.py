@@ -2,6 +2,7 @@ from Crypto.Hash import keccak
 sha3_256 = lambda x: keccak.new(digest_bits=256, data=x)
 
 
+
 def sha3(seed):
     return sha3_256(bytes(seed)).digest()
 
@@ -30,6 +31,7 @@ def cprint(num, txt):
 
 def phx(x):
     return x.encode('hex')[:8]
+
 
 if __name__ == '__main__':
     for i in range(len(colors)):

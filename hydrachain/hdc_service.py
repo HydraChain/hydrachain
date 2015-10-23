@@ -17,8 +17,8 @@ from collections import deque
 from gevent.queue import Queue
 from pyethapp.eth_service import ChainService as eth_ChainService
 from .consensus.protocol import HDCProtocol, HDCProtocolError
-from .consensus.base import Signed, VotingInstruction, BlockProposal
-from .consensus.base import VoteBlock, VoteNil, HDCBlockHeader, LockSet, Ready
+from .consensus.base import (Signed, VotingInstruction, BlockProposal, VoteBlock, VoteNil,
+                             HDCBlockHeader, LockSet, Ready)
 from .consensus.utils import phx
 from .consensus.manager import ConsensusManager
 from .consensus.contract import ConsensusContract

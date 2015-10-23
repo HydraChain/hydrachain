@@ -230,7 +230,7 @@ def test_nac_instances():
     nc.registry.unregister(SampleNAC)
 
 
-# Events #########################
+# ## Events #########################
 
 class Shout(nc.ABIEvent):
     args = [dict(name='a', type='uint16', indexed=True),
@@ -258,13 +258,13 @@ def test_events():
     c0.afunc(1, 2)
 
 
-# json abi ##############################
+# ## json abi ##############################
 
 def test_jsonabi():
     print EventNAC.json_abi()
 
 
-# Storage ###############3
+# ## Storage ###############
 
 
 def test_typed_storage():

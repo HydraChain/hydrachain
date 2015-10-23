@@ -77,8 +77,9 @@ setup(
     cmdclass={'test': PyTest},
     install_requires=install_requires,
     tests_require=test_requirements,
-    entry_points='''
-    [console_scripts]
-    hydrachain=hydrachain.app:app
-    '''
+    entry_points={
+        'console_scripts': [
+            "hydrachain = hydrachain.app:app"
+        ]
+    }
 )
