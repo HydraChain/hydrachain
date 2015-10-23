@@ -3,5 +3,5 @@ pyethapp>=1.0.5
 c_secp256k1
 bitcoin
 simpy
-pytest
+pytest==2.8.2
 serpent

@@ -10,6 +10,8 @@ bootstrap:
     - "127.0.0.1:4000:4000"
     - "127.0.0.1:30303:30303"
     - "127.0.0.1:30303:30303/udp"
+  environment:
+    - HYDRACHAIN_HOST_PREFIX
 
 node:
   build: node
@@ -18,6 +20,8 @@ node:
   volumes:
     - ../../../../hydrachain:/hydrachain.src:ro
     - ../../../../pyethapp:/pyethapp.src:ro
+  environment:
+    - HYDRACHAIN_HOST_PREFIX
 
 statsmon:
   build: statsmon

@@ -7,7 +7,7 @@ set -e
 cat /etc/hosts
 
 SEED=${SEED:-23}
-HOST_BASE_NAME=hydrachain_node_
+HOST_BASE_NAME=${HYDRACHAIN_HOST_PREFIX:-hydrachain}_node_
 BOOTSTRAP_NODE_NAME=${HOST_BASE_NAME}bootstrap
 
 if ! grep -q $BOOTSTRAP_NODE_NAME /etc/hosts ; then
