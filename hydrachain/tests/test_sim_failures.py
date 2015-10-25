@@ -1,4 +1,4 @@
-from hydrachain.consensus.manager import RoundManager
+from hydrachain.consensus.manager import RoundManager, ConsensusManager
 from hydrachain.consensus.simulation import Network, assert_heightdistance, assert_maxrounds
 
 
@@ -19,7 +19,7 @@ def test_slow_validators():
     network.normvariate_base_latencies()
     network.throttle_validators(num=3)
     network.start()
-    network.run(10)
+    network.run(5)
     r = network.check_consistency()
     assert_heightdistance(r, 1)
 
@@ -37,14 +37,14 @@ def test_slow_and_failing_validators():
 
 
 def test_low_timeout():
-    orig_timeout = RoundManager.timeout
-    RoundManager.timeout = 0.1
+    orig_timeout = ConsensusManager.round_timeout
+    ConsensusManager.round_timeout = 0.1
     network = Network(num_nodes=10, simenv=True)
     network.connect_nodes()
     network.normvariate_base_latencies()
     network.start()
-    network.run(10)
-    RoundManager.timeout = orig_timeout
+    network.run(5)
+    ConsensusManager.round_timeout = orig_timeout
 
     r = network.check_consistency()
     assert_heightdistance(r)

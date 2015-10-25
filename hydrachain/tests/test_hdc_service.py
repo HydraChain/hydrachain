@@ -9,7 +9,7 @@ from ethereum import config as eth_config
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
 from hydrachain.consensus.base import Block, BlockProposal, VoteBlock, VoteNil, TransientBlock
-from hydrachain.consensus.base import InvalidProposalError
+from hydrachain.consensus.base import InvalidProposalError, LockSet, Ready
 import ethereum.keys
 import rlp
 import tempfile
@@ -73,6 +73,16 @@ def test_receive_proposal():
         chainservice.on_receive_newblockproposal(proto, p)
     # assert chainservice.chain.head.number == 1  # we don't have consensus yet
 
+
+def test_broadcast_filter():
+    r = Ready(0, LockSet(1))
+    r.sign('x' * 32)
+    df = hdc_service.DuplicatesFilter()
+    assert r not in df
+    assert df.update(r)
+    assert not df.update(r)
+    assert not df.update(r)
+    assert r in df
 
 # def receive_blocks(rlp_data, leveldb=False, codernitydb=False):
 #     app = AppMock()

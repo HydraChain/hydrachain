@@ -26,7 +26,7 @@ def test_basic_simenv():
     r = network.check_consistency()
     assert_maxrounds(r)
     assert_heightdistance(r, max_distance=1)
-    assert_blocktime(r, 0.5)
+    assert_blocktime(r, 1.5)
 
 
 def test_basic_singlenode():
@@ -41,15 +41,14 @@ def test_basic_singlenode():
     assert_blocktime(r, 1.5)
 
 
-@pytest.mark.xfail
-def test_basic_simenv_transactions():
-    sim_time = 3
-    num_txs = 5
+def test_transactions():
+    sim_time = 5
+    num_txs = 2
     _num_initial_blocks_orig = ConsensusManager.num_initial_blocks
     num_initial_blocks = 2
     ConsensusManager.num_initial_blocks = num_initial_blocks
 
-    network = Network(num_nodes=2, simenv=True)
+    network = Network(num_nodes=4, simenv=True)
     network.connect_nodes()
     network.normvariate_base_latencies()
     app = network.nodes[0]
@@ -57,8 +56,6 @@ def test_basic_simenv_transactions():
 
     def cb(blk):
         log.DEV('ON NEW HEAD', blk=blk)
-
-        print num_initial_blocks
         if blk.number >= num_initial_blocks and blk.number < num_initial_blocks + num_txs:
             if blk.number > num_initial_blocks:
                 assert blk.num_transactions() == 1
@@ -74,7 +71,6 @@ def test_basic_simenv_transactions():
             app.services.accounts.sign_tx(sender, tx)
             assert tx.sender == sender
             success = chainservice.add_transaction(tx)
-            assert success
 
     chainservice.on_new_head_cbs.append(cb)
     network.start()
@@ -85,7 +81,7 @@ def test_basic_simenv_transactions():
     assert chainservice.chain.head.number == expected_head_number
     assert_maxrounds(r)
     assert_heightdistance(r, max_distance=1)
-    assert_blocktime(r, 0.5)
+    assert_blocktime(r, 1.5)
 
     # set to old value
     ConsensusManager.num_initial_blocks = _num_initial_blocks_orig

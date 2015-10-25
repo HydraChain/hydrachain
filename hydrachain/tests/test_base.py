@@ -1,18 +1,33 @@
 # from hydrachain import protocol
-from hydrachain.consensus.base import Vote, VoteBlock, VoteNil, LockSet, ishash
-from hydrachain.consensus.base import DoubleVotingError, InvalidVoteError
+from hydrachain.consensus.base import Vote, VoteBlock, VoteNil, LockSet, ishash, Ready
+from hydrachain.consensus.base import DoubleVotingError, InvalidVoteError, MissingSignatureError
 from hydrachain.consensus.base import BlockProposal, genesis_signing_lockset, InvalidProposalError
-from hydrachain.consensus.base import Proposal, VotingInstruction, InvalidSignature
+from hydrachain.consensus.base import Proposal, VotingInstruction, InvalidSignature, Signed
+
 
 from ethereum import utils, tester
 import rlp
 import pytest
 
+privkey = 'x' * 32
+
+
+def test_signed():
+    s = Signed(v=0, r=0, s=0)
+    assert s.sender is None
+    with pytest.raises(MissingSignatureError):
+        s.hash
+    s.sign(privkey)
+    sender = s.sender
+    h = s.hash
+    s.v = 0  # change signature, in order to test signature independend hash
+    assert s.sender == sender
+    assert s.hash == h
+
 
 def test_vote():
     h, r = 2, 3
     bh = '0' * 32
-    privkey = 'x' * 32
     sender = utils.privtoaddr(privkey)
 
     v = Vote(h, r)
@@ -60,6 +75,20 @@ def test_vote():
 
 privkeys = [chr(i) * 32 for i in range(1, 11)]
 validators = [utils.privtoaddr(p) for p in privkeys]
+
+
+def test_ready():
+    ls = LockSet(num_eligible_votes=len(privkeys))
+    s = Ready(0, current_lockset=ls)
+    assert s.current_lockset == ls
+    s.sign(privkey)
+    s0 = Ready(0, current_lockset=ls)
+    s0.sign(privkey)
+    s1 = Ready(1, current_lockset=ls)
+    s1.sign(privkey)
+
+    assert s == s0
+    assert s != s1
 
 
 def test_LockSet():

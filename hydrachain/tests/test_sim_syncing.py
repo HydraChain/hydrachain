@@ -1,4 +1,4 @@
-from hydrachain.consensus.manager import RoundManager
+from hydrachain.consensus.manager import RoundManager, ConsensusManager
 from hydrachain.consensus.simulation import Network, assert_heightdistance, assert_maxrounds
 
 
@@ -15,7 +15,7 @@ def test_resyncing_of_peers():
     network.connect_nodes()
     network.normvariate_base_latencies()
     network.start()
-    network.run(2)
+    network.run(3)
 
     r = network.check_consistency()
     assert_heightdistance(r)
@@ -52,8 +52,8 @@ def test_successive_joining():
 
 def test_broadcasting():
     network = Network(num_nodes=10, simenv=True)
-    orig_timeout = RoundManager.timeout
-    RoundManager.timeout = 100  # don't trigger timeouts
+    orig_timeout = ConsensusManager.round_timeout
+    # ConsensusManager.round_timeout = 100  # don't trigger timeouts
 
     # connect nodes as a ring
     for i, n in enumerate(network.nodes):
@@ -64,8 +64,8 @@ def test_broadcasting():
         n.connect_app(o)
     network.normvariate_base_latencies()
     network.start()
-    network.run(5)
-    RoundManager.timeout = orig_timeout
+    network.run(10)
+    ConsensusManager.round_timeout = orig_timeout
     r = network.check_consistency()
     assert_maxrounds(r)
     assert_heightdistance(r)
