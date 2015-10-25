@@ -1,7 +1,7 @@
 # Copyright (c) 2015 Heiko Hees
 import sys
 import rlp
-from .base import LockSet, Vote, VoteBlock, VoteNil, Signed
+from .base import LockSet, Vote, VoteBlock, VoteNil, Signed, Ready
 from .base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
 from .base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
 from .protocol import HDCProtocol
@@ -82,6 +82,9 @@ class ConsensusManager(object):
 
     allow_empty_blocks = False
     num_initial_blocks = 100
+    round_timeout = 3  # timeout when waiting for proposal
+    round_timeout_factor = 1.5  # timeout increase per round
+    transaction_timeout = 0.5  # delay when waiting for new transaction
 
     def __init__(self, chainservice, consensus_contract, privkey):
         self.chainservice = chainservice
@@ -95,8 +98,14 @@ class ConsensusManager(object):
 
         self.tracked_protocol_failures = list()
 
+        # wait for enough validators in order to start
+        self.ready_validators = set()  # addresses
+        self.ready_nonce = 0
+
         assert self.contract.isvalidator(self.coinbase)
         self.initialize_locksets()
+
+        self.ready_validators = set([self.coinbase])  # old votes dont count
 
     def initialize_locksets(self):
         log.debug('initializing locksets')
@@ -198,12 +207,35 @@ class ConsensusManager(object):
     # message handling
 
     def broadcast(self, m):
-        self.log('broadcasting', msg=m)
+        self.log('broadcasting', message=m)
         self.chainservice.broadcast(m)
+
+    # validator ready handling
+
+    @property
+    def is_ready(self):
+        return len(self.ready_validators) >= len(self.contract.validators) * 2 / 3.
+
+    def send_ready(self):
+        self.log('cm.send_ready')
+        assert not self.is_ready
+        r = Ready(self.ready_nonce, self.active_round.lockset)
+        self.sign(r)
+        self.broadcast(r)
+        self.ready_nonce += 1
+
+    def add_ready(self, ready, proto=None):
+        assert isinstance(ready, Ready)
+        assert self.contract.isvalidator(ready.sender)
+        self.ready_validators.add(ready.sender)
+        self.log('cm.add_ready', validator=ready.sender)
+        if self.is_ready:
+            self.log('cm.add_ready, sufficient count of validators ready')
 
     def add_vote(self, v, proto=None):
         assert isinstance(v, Vote)
         assert self.contract.isvalidator(v.sender)
+        self.ready_validators.add(v.sender)
         # exception for externaly received votes signed by self, necessary for resyncing
         is_own_vote = bool(v.sender == self.coinbase)
         try:
@@ -232,6 +264,8 @@ class ConsensusManager(object):
 
         if not check(self.contract.isvalidator(p.sender) and self.contract.isproposer(p)):
             return
+        self.ready_validators.add(p.sender)
+
         if not check(p.lockset.is_valid):
             return
         if not check(p.lockset.height == p.height or p.round == 0):
@@ -325,19 +359,28 @@ class ConsensusManager(object):
 
     def setup_alarm(self):
         ar = self.active_round
-        delay = ar.setup_alarm()
+        delay = ar.get_timeout()
         if delay is not None:
-            self.chainservice.setup_alarm(delay, self.on_alarm, ar)
-            self.log('set up alarm', now=self.chainservice.now,
-                     delay=delay, triggered=delay + self.chainservice.now)
+            if self.is_waiting_for_proposal:
+                self.chainservice.setup_alarm(delay, self.on_alarm, ar)
+                self.log('set up alarm', now=self.chainservice.now,
+                         delay=delay, triggered=delay + self.chainservice.now)
+            else:
+                self.chainservice.setup_transaction_alarm(self.on_alarm, ar)
+                self.log('set up on tx alarm', now=self.chainservice.now)
 
     def on_alarm(self, ar):
-        self.log('on alarm')
         assert isinstance(ar, RoundManager)
         if self.active_round == ar:
             self.log('on alarm, matched', ts=self.chainservice.now)
-            # defer alarm if there are no pending transactions
-            if not self.is_waiting_for_proposal:
+            if not self.is_ready:
+                # defer alarm if not ready
+                self.log('not ready defering alarm', ts=self.chainservice.now)
+                self.send_ready()
+                self.active_round.timeout_time = None  # cancel alarm
+                self.setup_alarm()
+            elif not self.is_waiting_for_proposal:
+                # defer alarm if there are no pending transactions
                 self.log('no txs defering alarm', ts=self.chainservice.now)
                 self.active_round.timeout_time = None  # cancel alarm
                 self.setup_alarm()
@@ -357,6 +400,10 @@ class ConsensusManager(object):
     def process(self):
         self.log('-' * 40)
         self.log('in process')
+        if not self.is_ready:
+            self.log('not ready ')
+            self.setup_alarm()
+            return
         self.commit()
         self.heights[self.height].process()
         if self.commit():  # re enter process if we did commit (e.g. to immediately propose)
@@ -390,6 +437,8 @@ class ConsensusManager(object):
                     self.log('could not commit', p=p)
             else:
                 self.log('no quorum for', p=p)
+                if ls:
+                    self.log('votes', votes=ls.votes)
 
     def cleanup(self):
         self.log('in cleanup')
@@ -457,7 +506,14 @@ class HeightManager(object):
         for r in sorted(self.rounds):  # search from lowest round first
             ls = self.rounds[r].lockset
             if ls.is_valid and ls.has_quorum:
-                assert found is None  # consistency check, only one quorum allowed
+                if found is not None:  # consistency check, only one quorum on block allowed
+                    for r in sorted(self.rounds):  # dump all locksets
+                        self.log('multiple valid locksets', round=r, ls=self.rounds[r].lockset,
+                                 votes=self.rounds[r].lockset.votes)
+                    if found.has_quorum != ls.has_quorum:
+                        log.error('FATAL: multiple valid locksets on different proposals')
+                        import sys
+                        sys.exit(1)
                 found = ls
         return found
 
@@ -484,10 +540,8 @@ class HeightManager(object):
 
 class RoundManager(object):
 
-    timeout = 1  # secs
-    timeout_round_factor = 1.2
-
     def __init__(self, heightmanager, round_=0):
+
         assert isinstance(round_, int)
         self.round = round_
 
@@ -502,17 +556,21 @@ class RoundManager(object):
         log.debug('A:%s Created RoundManager H:%d R:%d' %
                   (phx(self.cm.coinbase), self.hm.height, self.round))
 
-    def setup_alarm(self):
+    def get_timeout(self):
         "setup a timeout for waiting for a proposal"
         if self.timeout_time is not None or self.proposal:
             return
         now = self.cm.chainservice.now
-        delay = self.timeout * self.timeout_round_factor ** self.round
+        round_timeout = ConsensusManager.round_timeout
+        round_timeout_factor = ConsensusManager.round_timeout_factor
+        delay = round_timeout * round_timeout_factor ** self.round
         self.timeout_time = now + delay
         return delay
 
     def add_vote(self, v, force_replace=False):
-        self.log('rm.adding', vote=v, proposal=self.proposal, pid=id(self.proposal))
+        if v in self.lockset:
+            return
+        self.log('rm.adding', vote=v, received_proposal=self.proposal)
         try:
             success = self.lockset.add(v, force_replace)
         except InvalidVoteError:
@@ -573,6 +631,7 @@ class RoundManager(object):
         self.log('in propose', proposer=phx(proposer), proposal=self.proposal, lock=self.lock)
         if proposer != self.cm.coinbase:
             return
+        self.log('is proposer')
         if self.proposal:
             assert self.proposal.sender == self.cm.coinbase
             assert self.lock
@@ -596,7 +655,7 @@ class RoundManager(object):
         else:
             raise Exception('invalid round_lockset')
 
-        self.log('created proposal', p=proposal)
+        self.log('created proposal', p=proposal, bh=phx(proposal.blockhash))
         self.proposal = proposal
         return proposal
 

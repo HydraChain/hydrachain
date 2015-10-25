@@ -22,7 +22,7 @@ from gevent.queue import Queue
 from pyethapp.eth_service import ChainService as eth_ChainService
 from .consensus.protocol import HDCProtocol, HDCProtocolError
 from .consensus.base import Signed, VotingInstruction, BlockProposal, Proposal, TransientBlock
-from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader, LockSet
+from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader, LockSet, Ready
 from .consensus.utils import phx
 from .consensus.manager import ConsensusManager
 from .consensus.contract import ConsensusContract
@@ -39,7 +39,7 @@ def apply_transaction(block, tx):
     # import traceback
     # print traceback.print_stack()
     log.debug('apply_transaction ctx switch', tx=tx.hash.encode('hex')[:8])
-    gevent.sleep(0.001)
+    gevent.sleep(0.0000001)
     return processblock_apply_transaction(block, tx)
 processblock.apply_transaction = apply_transaction
 
@@ -192,7 +192,20 @@ class ChainService(eth_ChainService):
             gevent.sleep(delay)
             log.debug('alarm triggered')
             cb(*args)
+
         gevent.spawn(_trigger)
+
+    def setup_transaction_alarm(self, cb, *args):
+        log.debug('setting up alarm')
+
+        class Trigger(object):
+
+            def __call__(me, blk):
+                self.on_new_head_candidate_cbs.remove(me)
+                log.DEV('transaction alarm triggered')
+                cb(*args)
+
+        self.on_new_head_candidate_cbs.append(Trigger())
 
     def commit_block(self, blk):
         assert isinstance(blk.header, HDCBlockHeader)
@@ -325,6 +338,17 @@ class ChainService(eth_ChainService):
             self.broadcast(vote, origin_proto=proto)
         self.consensus_manager.process()
 
+#  votes
+
+    def on_receive_ready(self, proto, ready):
+        if ready.hash in self.broadcast_filter:
+            return
+        log.debug('----------------------------------')
+        log.debug("recv ready", ready=ready, remote_id=proto)
+        self.consensus_manager.add_ready(ready, proto)
+        self.broadcast(ready, origin_proto=proto)
+        self.consensus_manager.process()
+
     #  start
 
     def on_receive_status(self, proto, eth_version, network_id, genesis_hash, current_lockset):
@@ -352,7 +376,7 @@ class ChainService(eth_ChainService):
         # send last BlockProposal
         p = self.consensus_manager.last_blockproposal
         if p:
-            self.consensus_manager.log('sending proposal', p=p)
+            log.debug('sending proposal', p=p)
             proto.send_newblockproposal(p)
 
         # send transactions
@@ -373,6 +397,7 @@ class ChainService(eth_ChainService):
         proto.receive_newblockproposal_callbacks.append(self.on_receive_newblockproposal)
         proto.receive_votinginstruction_callbacks.append(self.on_receive_votinginstruction)
         proto.receive_vote_callbacks.append(self.on_receive_vote)
+        proto.receive_ready_callbacks.append(self.on_receive_ready)
 
         # send status
         proto.send_status(genesis_hash=self.chain.genesis.hash,
@@ -387,8 +412,8 @@ class ChainService(eth_ChainService):
         """
         """
         fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
-                VotingInstruction: 'votinginstruction', Transaction: 'transaction'}
-        if not self.broadcast_filter.update(obj.hash):
+                VotingInstruction: 'votinginstruction', Transaction: 'transactions', Ready: 'ready'}
+        if self.broadcast_filter.update(obj.hash) == False:
             log.debug('already broadcasted', obj=obj)
             return
         if isinstance(obj, BlockProposal):

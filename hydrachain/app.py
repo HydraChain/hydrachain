@@ -95,6 +95,7 @@ def rundummy(ctx, num_validators, node_num, seed):
               type=int, default=42, help='the seed')
 @click.pass_context
 def runmultiple(ctx, num_validators, seed):
+    gevent.get_hub().SYSTEM_ERROR = BaseException
     base_port = 29870
 
     # reduce key derivation iterations
@@ -109,7 +110,8 @@ def runmultiple(ctx, num_validators, seed):
         # set ports based on node
         n_config['discovery']['listen_port'] = base_port + node_num
         n_config['p2p']['listen_port'] = base_port + node_num
-        n_config['p2p']['min_peers'] = 2
+        n_config['p2p']['min_peers'] = min(10, num_validators)
+        n_config['p2p']['max_peers'] = n_config['p2p']['min_peers']
         n_config['jsonrpc']['listen_port'] += node_num
 
         # have multiple datadirs

@@ -13,7 +13,7 @@ from ethereum import slogging
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
 from hydrachain.consensus.base import Block
-from hydrachain.consensus.manager import RoundManager
+from hydrachain.consensus.manager import RoundManager, ConsensusManager
 from ethereum.utils import big_endian_to_int, sha3, privtoaddr
 import ethereum.keys
 import gevent
@@ -100,7 +100,7 @@ class SlowTransport(Transport):
 
     def deliver(self, sender, receiver, packet):
         "deliver on edge of timeout_window"
-        to = sender.app.services.chainservice.consensus_manager.active_round.timeout
+        to = ConsensusManager.round_timeout
         assert to > 0
         print "in slow transport deliver"
         super(SlowTransport, self).deliver(sender, receiver, packet, add_delay=to)
@@ -131,14 +131,14 @@ class PeerMock(object):
 
     def send_packet(self, packet):
         assert self.peer
-        # log.debug('send_packet', sender=self, receiver=self.peer)
+        # log.debug('send_packet', sender=self, receiver=self.peer, len=len(packet))
         self.egress_bytes += len(packet)
         self.transport.deliver(self, self.peer, packet)
 
     def receive_packet(self, sender, packet):
         assert self.app.isactive
         assert sender != self
-        # log.debug('receive_packet', sender=sender, receiver=self)
+        # log.debug('receive_packet', sender=sender, receiver=self, len=len(packet))
         self.ingress_bytes += len(packet)
         self.protocol.receive_packet(packet)
 
@@ -243,7 +243,7 @@ class AppMock(object):
         return True
 
     def connect_app(self, other):
-        log.DEV('connecting', node=self, other=other)
+        log.debug('connecting', node=self, other=other)
         transport = Transport(self.simenv)
         p = PeerMock(self, transport)
         op = PeerMock(other, transport)
@@ -396,6 +396,8 @@ def main(num_nodes=10, sim_duration=10, timeout=0.5,
          base_latency=0.05, latency_sigma_factor=0.5,
          num_faulty_nodes=3, num_slow_nodes=0):
 
+    orig_timeout = ConsensusManager.round_timeout
+    ConsensusManager.round_timeout = timeout
     network = Network(num_nodes, simenv=True)
     network.connect_nodes()
     network.normvariate_base_latencies(latency_sigma_factor, base_latency)
@@ -404,8 +406,7 @@ def main(num_nodes=10, sim_duration=10, timeout=0.5,
     network.start()
     network.run(sim_duration)
     network.check_consistency()
-    RoundManager.timeout = timeout
-
+    ConsensusManager.round_timeout = orig_timeout
     return network
 
 if __name__ == '__main__':

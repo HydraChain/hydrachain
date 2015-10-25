@@ -3,6 +3,7 @@ import warnings
 try:
     from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover
 except ImportError:
+    raise ImportError('no c_secp256k1!!!')
     warnings.warn('Warning falling back to pybitcointools')
     from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover
 from collections import Counter
@@ -46,7 +47,14 @@ class RLPHashable(rlp.Serializable):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<%s(%s)>' % (self.__class__.__name__, encode_hex(self.hash)[:4])
+        try:
+            return '<%s(%s)>' % (self.__class__.__name__, encode_hex(self.hash)[:4])
+        except:
+            return '<%s>' % (self.__class__.__name__)
+
+
+class MissingSignatureError(Exception):
+    pass
 
 
 class Signed(RLPHashable):
@@ -93,8 +101,20 @@ class Signed(RLPHashable):
             pub = encode_pubkey(pub, 'bin')
             return sha3(pub[1:])[-20:]
 
+    @property
+    def hash(self):
+        "signatures are non deterministic"
+        if self.sender is None:
+            raise MissingSignatureError()
+
+        class HashSerializable(rlp.Serializable):
+            fields = [(field, sedes) for field, sedes in self.fields
+                      if field not in ('v', 'r', 's')] + [('_sender', binary)]
+            _sedes = None
+        return sha3(rlp.encode(self, HashSerializable))
 
 # Votes
+
 
 class Vote(Signed):
 
@@ -118,7 +138,7 @@ class Vote(Signed):
             self.__class__ = VoteNil
 
     def __repr__(self):
-        return '<%s(S:%s B:%s)>' % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+        return '<%s(S:%s BH:%s)>' % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
 
     @property
     def hr(self):
@@ -289,6 +309,25 @@ def genesis_signing_lockset(genesis, privkey):
     return ls
 
 
+########
+
+class Ready(Signed):
+
+    """
+    Used to sync during the startup sequence
+    """
+    fields = [
+        ('nonce', big_endian_int),
+        ('current_lockset', LockSet)
+    ] + Signed.fields
+
+    def __init__(self, nonce, current_lockset, v=0, r=0, s=0):
+        super(Ready, self).__init__(nonce, current_lockset, v, r, s)
+
+    def __repr__(self):
+        return '<Ready(n:{})>'.format(self.nonce)
+
+
 class InvalidProposalError(Exception):
     pass
 
@@ -437,8 +476,8 @@ class BlockProposal(Proposal):
         return True
 
     def __repr__(self):
-        return "<%s S:%r H:%d B:%s>" % (self.__class__.__name__, phx(self._sender),
-                                        self.height, phx(self.blockhash))
+        return "<%s S:%r H:%d R:%d BH:%s>" % (self.__class__.__name__, phx(self._sender),
+                                              self.height, self.round, phx(self.blockhash))
 
     @property
     def blockhash(self):
@@ -477,7 +516,7 @@ class VotingInstruction(Proposal):
         return self.round_lockset
 
     def __repr__(self):
-        return "<%s %r B:%s>" % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+        return "<%s %r BH:%s>" % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
 
     def validate_votes(self, validators_H):
         "set of validators may change between heights"
