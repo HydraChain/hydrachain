@@ -191,6 +191,7 @@ def test_LockSet_3_quorums():
     v = VoteNil(0, 0)
     v.sign(privkeys[1])
     ls.add(v)
+    assert len(ls) == 2
     assert not ls.is_valid
     v = VoteNil(0, 0)
     v.sign(privkeys[2])

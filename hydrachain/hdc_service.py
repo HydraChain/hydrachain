@@ -41,7 +41,7 @@ def apply_transaction(block, tx):
     log.debug('apply_transaction ctx switch', tx=tx.hash.encode('hex')[:8])
     gevent.sleep(0.0000001)
     return processblock_apply_transaction(block, tx)
-processblock.apply_transaction = apply_transaction
+# processblock.apply_transaction = apply_transaction
 
 
 rlp_hash_hex = lambda data: encode_hex(sha3(rlp.encode(data)))
@@ -81,6 +81,40 @@ def update_watcher(chainservice):
         last = d['head']
         gevent.sleep(timeout)
         assert last != d['head'], 'no updates for %d secs' % timeout
+
+
+class ProposalLock(gevent.lock.BoundedSemaphore):
+
+    def __init__(self):
+        super(ProposalLock, self).__init__()
+        self.block = None
+
+    def is_locked(self):
+        return self.locked()
+
+    def acquire(self):
+        log.DEV('trying to acquire', lock=self)
+        super(ProposalLock, self).acquire()
+        log.DEV('acquired', lock=self)
+
+    @property
+    def height(self):
+        if self.block:
+            return self.block.number
+
+    def release(self, if_block=-1):
+        log.DEV('in ProposalLock.relase', lock=self, if_block=if_block, block=self.block)
+        if if_block != -1 and self.block and if_block != self.block:
+            log.DEV('could not release', lock=self)
+            return
+        self.block = None
+        super(ProposalLock, self).release()
+        log.DEV('released', lock=self)
+
+    def __repr__(self):
+        return '<ProposalLock({}) locked={} {}>'.format(self.block, self.is_locked(), id(self))
+
+    __str__ = __repr__
 
 
 class ChainService(eth_ChainService):
@@ -153,7 +187,7 @@ class ChainService(eth_ChainService):
 
         self.transaction_queue = Queue(maxsize=self.transaction_queue_size)
         self.add_blocks_lock = False
-        self.add_transaction_lock = gevent.lock.Semaphore()
+        self.add_transaction_lock = gevent.lock.BoundedSemaphore()
         self.broadcast_filter = DuplicatesFilter()
         self.on_new_head_cbs = []
         self.on_new_head_candidate_cbs = []
@@ -164,9 +198,19 @@ class ChainService(eth_ChainService):
         self.consensus_manager = ConsensusManager(self, self.consensus_contract,
                                                   self.consensus_privkey)
 
+        # lock blocks that where proposed, so they don't get mutated
+        self.proposal_lock = ProposalLock()
+        assert not self.proposal_lock.is_locked()
+
     def start(self):
         super(ChainService, self).start()
         self.consensus_manager.process()
+        gevent.spawn(self.announce)
+
+    def announce(self):
+        while not self.consensus_manager.is_ready:
+            self.consensus_manager.send_ready()
+            gevent.sleep(0.5)
 
     # interface accessed by ConensusManager
 
@@ -252,6 +296,49 @@ class ChainService(eth_ChainService):
             return
         return block
 
+    def add_transaction(self, tx, origin=None):
+        self.consensus_manager.log(
+            'add_transaction', to=self.chain.head_candidate, lock=self.proposal_lock)
+        log.DEV('add_transaction', lock=self.proposal_lock)
+        block = self.proposal_lock.block
+        gevent.sleep(1)
+
+        def _later():
+            gevent.sleep(1)
+            self.consensus_manager.log('slept a bit')
+        gevent.spawn(_later)
+        self.proposal_lock.acquire()
+        self.consensus_manager.log('add_transaction acquired lock', lock=self.proposal_lock)
+        assert not hasattr(self.chain.head_candidate, 'should_be_locked')
+        super(ChainService, self).add_transaction(tx, origin)
+        self.proposal_lock.release(if_block=block)
+        log.DEV('added transaction', num_txs=self.chain.head_candidate.num_transactions())
+
+    def _on_new_head(self, blk):
+        self.release_proposal_lock(blk)
+        super(ChainService, self)._on_new_head(blk)
+
+    def set_proposal_lock(self, blk):
+        log.DEV('set_proposal_lock', locked=self.proposal_lock)
+        if not self.proposal_lock.is_locked():
+            self.proposal_lock.acquire()
+        self.proposal_lock.block = blk
+        assert self.proposal_lock.is_locked()  # can not be aquired
+        log.DEV('did set_proposal_lock', lock=self.proposal_lock)
+
+    def release_proposal_lock(self, blk):
+        log.DEV('releasing proposal_lock', lock=self.proposal_lock)
+        if self.proposal_lock.is_locked():
+            if self.proposal_lock.height <= blk.number:
+                assert self.chain.head_candidate.number > self.proposal_lock.height
+                assert not hasattr(self.chain.head_candidate, 'should_be_locked')
+                assert not isinstance(self.chain.head_candidate.header, HDCBlockHeader)
+                self.proposal_lock.release()
+                log.DEV('released')
+                assert not self.proposal_lock.is_locked()
+            else:
+                log.DEV('could not release', head=blk, lock=self.proposal_lock)
+
     ###############################################################################
 
     @property
@@ -311,7 +398,7 @@ class ChainService(eth_ChainService):
         assert isinstance(proposal.block.header, HDCBlockHeader)
         isvalid = self.consensus_manager.add_proposal(proposal, proto)
         if isvalid:
-            self.broadcast(proposal, origin_proto=proto)
+            self.broadcast(proposal, origin=proto)
         self.consensus_manager.process()
 
     def on_receive_votinginstruction(self, proto, votinginstruction):
@@ -322,23 +409,33 @@ class ChainService(eth_ChainService):
         # self.synchronizer.receive_newproposal(proto, proposal)
         isvalid = self.consensus_manager.add_proposal(votinginstruction, proto)
         if isvalid:
-            self.broadcast(votinginstruction, origin_proto=proto)
+            self.broadcast(votinginstruction, origin=proto)
 
         self.consensus_manager.process()
 
     #  votes
 
     def on_receive_vote(self, proto, vote):
+        self.consensus_manager.log('on_receive_vote', v=vote)
         if vote.hash in self.broadcast_filter:
+            log.debug('filtered!!!')
             return
         log.debug('----------------------------------')
         log.debug("recv vote", vote=vote, remote_id=proto)
         isvalid = self.consensus_manager.add_vote(vote, proto)
         if isvalid:
-            self.broadcast(vote, origin_proto=proto)
+            self.broadcast(vote, origin=proto)
         self.consensus_manager.process()
 
-#  votes
+    def on_receive_lockset(self, proto, lockset):
+        self.consensus_manager.log('on_receive_lockset', lockset=lockset)
+        if lockset.hash in self.broadcast_filter:
+            return
+        log.debug('----------------------------------')
+        log.debug("recv lockset", lockset=lockset, remote_id=proto)
+        self.consensus_manager.add_lockset(lockset, proto)
+        # not broadcasted
+        self.consensus_manager.process()
 
     def on_receive_ready(self, proto, ready):
         if ready.hash in self.broadcast_filter:
@@ -346,7 +443,7 @@ class ChainService(eth_ChainService):
         log.debug('----------------------------------')
         log.debug("recv ready", ready=ready, remote_id=proto)
         self.consensus_manager.add_ready(ready, proto)
-        self.broadcast(ready, origin_proto=proto)
+        self.broadcast(ready, origin=proto)
         self.consensus_manager.process()
 
     #  start
@@ -398,6 +495,7 @@ class ChainService(eth_ChainService):
         proto.receive_votinginstruction_callbacks.append(self.on_receive_votinginstruction)
         proto.receive_vote_callbacks.append(self.on_receive_vote)
         proto.receive_ready_callbacks.append(self.on_receive_ready)
+        proto.receive_lockset_callbacks.append(self.on_receive_lockset)
 
         # send status
         proto.send_status(genesis_hash=self.chain.genesis.hash,
@@ -408,11 +506,12 @@ class ChainService(eth_ChainService):
         log.debug('----------------------------------')
         log.debug('on_wire_protocol_stop', proto=proto)
 
-    def broadcast(self, obj, origin_proto=None):
+    def broadcast(self, obj, origin=None):
         """
         """
         fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
-                VotingInstruction: 'votinginstruction', Transaction: 'transactions', Ready: 'ready'}
+                VotingInstruction: 'votinginstruction', Transaction: 'transactions',
+                Ready: 'ready', LockSet: 'lockset'}
         if self.broadcast_filter.update(obj.hash) == False:
             log.debug('already broadcasted', obj=obj)
             return
@@ -421,4 +520,6 @@ class ChainService(eth_ChainService):
         log.debug('broadcasting', obj=obj)
         bcast = self.app.services.peermanager.broadcast
         bcast(HDCProtocol, fmap[type(obj)], args=(obj,),
-              exclude_peers=[origin_proto.peer] if origin_proto else [])
+              exclude_peers=[origin.peer] if origin else [])
+
+    broadcast_transaction = broadcast

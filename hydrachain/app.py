@@ -110,9 +110,10 @@ def runmultiple(ctx, num_validators, seed):
         # set ports based on node
         n_config['discovery']['listen_port'] = base_port + node_num
         n_config['p2p']['listen_port'] = base_port + node_num
-        n_config['p2p']['min_peers'] = min(10, num_validators)
-        n_config['p2p']['max_peers'] = n_config['p2p']['min_peers']
+        n_config['p2p']['min_peers'] = min(10, num_validators - 1)
+        n_config['p2p']['max_peers'] = num_validators * 2
         n_config['jsonrpc']['listen_port'] += node_num
+        n_config['client_version_string'] = 'NODE{}'.format(node_num)
 
         # have multiple datadirs
         n_config['data_dir'] += str(node_num)
@@ -120,7 +121,7 @@ def runmultiple(ctx, num_validators, seed):
 
         # deactivate console (note: maybe this could work with one console)
         n_config['deactivated_services'].append(Console.name)
-
+        # n_config['deactivated_services'].append(ChainService.name)
         app = start_app(n_config, account)
     serve_until_stopped(app)
 

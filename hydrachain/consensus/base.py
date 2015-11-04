@@ -1,11 +1,11 @@
 # Copyright (c) 2015 Heiko Hees
 import warnings
 try:
-    from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover
-except ImportError:
-    raise ImportError('no c_secp256k1!!!')
+    from c_secp256k1 import ecdsa_sign_raw, ecdsa_recover_raw
+except ImportError as e:
+    raise ImportError('no c_secp256k1!!!', e)
     warnings.warn('Warning falling back to pybitcointools')
-    from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover
+    from bitcoin import ecdsa_raw_sign as ecdsa_sign_raw, ecdsa_raw_recover as ecdsa_recover_raw
 from collections import Counter
 from ethereum.blocks import Block
 from ethereum.utils import big_endian_to_int
@@ -78,7 +78,7 @@ class Signed(RLPHashable):
         if privkey in (0, '', '\x00' * 32):
             raise InvalidSignature("Zero privkey cannot sign")
         rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
-        self.v, self.r, self.s = ecdsa_raw_sign(rawhash, privkey)
+        self.v, self.r, self.s = ecdsa_sign_raw(rawhash, privkey)
         self._sender = None
         return self
 
@@ -95,7 +95,7 @@ class Signed(RLPHashable):
                 raise InvalidSignature()
             rlpdata = rlp.encode(self, self.__class__.exclude(['v', 'r', 's']))
             rawhash = sha3(rlpdata)
-            pub = ecdsa_raw_recover(rawhash, (self.v, self.r, self.s))
+            pub = ecdsa_recover_raw(rawhash, (self.v, self.r, self.s))
             if pub is False or pub == (0, 0):
                 raise InvalidSignature()
             pub = encode_pubkey(pub, 'bin')
@@ -443,11 +443,13 @@ class BlockProposal(Proposal):
     @property
     def sender(self):
         # double check unmutable
-        assert self.rawhash == sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
-
         s = super(BlockProposal, self).sender
         if not s:
             raise InvalidProposalError('signature missing')
+        assert self.rawhash
+        assert self.v
+        _rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
+        assert self.rawhash == _rawhash
         assert len(s) == 20
         assert len(self.block.header.coinbase) == 20
         if s != self.block.header.coinbase:
