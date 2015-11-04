@@ -419,7 +419,7 @@ class NativeABIContract(NativeContractBase):
         args = abi.decode_abi(m_abi['arg_types'], calldata[4:])
         # call (unbound) method
         method = m_abi['method']
-        log.debug('calling', method=method.__name__, args=args)
+        log.debug('calling', method=method.__name__, _args=args)
         try:
             res = method(self, *args)
         except RuntimeError as e:
