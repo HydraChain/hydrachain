@@ -301,7 +301,7 @@ class ChainService(eth_ChainService):
             'add_transaction', to=self.chain.head_candidate, lock=self.proposal_lock)
         log.DEV('add_transaction', lock=self.proposal_lock)
         block = self.proposal_lock.block
-        gevent.sleep(1)
+        # gevent.sleep(1)
 
         def _later():
             gevent.sleep(1)

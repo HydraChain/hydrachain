@@ -282,7 +282,11 @@ class Network(object):
         # start nodes
         for n in self.nodes:
             if n.isactive:
-                n.services.chainservice.consensus_manager.process()
+                cm = n.services.chainservice.consensus_manager
+                if self.simenv:   # set ready!
+                    cm.ready_validators = set(range(int(len(cm.contract.validators))))
+                    assert cm.is_ready
+                cm.process()
 
     def run(self, duration):
         if self.simenv:
