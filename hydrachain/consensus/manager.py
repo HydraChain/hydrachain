@@ -407,8 +407,8 @@ class ConsensusManager(object):
     def process(self):
         h = self.height
         r = self._process()
-        if self.height > h:
-            self.broadcast(self.last_committing_lockset)
+        # if self.height > h:
+        #     self.broadcast(self.last_committing_lockset)
         return r
 
     def _process(self):

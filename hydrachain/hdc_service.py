@@ -298,20 +298,21 @@ class ChainService(eth_ChainService):
         return block
 
     def add_transaction(self, tx, origin=None, force_broadcast=False):
+        """
+        problem,
+            receive sent tx (or any)
+            can not aquire lock,
+                which blocks the whole channel
+                therefore will not receive votes
+                therefore will never proceed to the next block
+        """
         self.consensus_manager.log(
             'add_transaction', blk=self.chain.head_candidate, lock=self.proposal_lock)
         log.DEV('add_transaction', lock=self.proposal_lock)
         block = self.proposal_lock.block
-        # gevent.sleep(1)
-
-        def _later():
-            gevent.sleep(1)
-            self.consensus_manager.log('slept a bit')
-        gevent.spawn(_later)
         self.proposal_lock.acquire()
         self.consensus_manager.log('add_transaction acquired lock', lock=self.proposal_lock)
         assert not hasattr(self.chain.head_candidate, 'should_be_locked')
-        assert tx.hash not in self.broadcast_filter, self.broadcast_filter.filter
         super(ChainService, self).add_transaction(tx, origin, force_broadcast)
         if self.proposal_lock.is_locked():  # can be unlock if we are at a new block
             self.proposal_lock.release(if_block=block)
@@ -360,8 +361,11 @@ class ChainService(eth_ChainService):
         "receives rlp.decoded serialized"
         log.debug('----------------------------------')
         log.debug('remote_transactions_received', count=len(transactions), remote_id=proto)
-        for tx in transactions:
-            self.add_transaction(tx, origin=proto)
+
+        def _add_txs():
+            for tx in transactions:
+                self.add_transaction(tx, origin=proto)
+        gevent.spawn(_add_txs)  # so the locks in add_transaction won't lock the connection
 
     # blocks / proposals ################
 
@@ -430,15 +434,15 @@ class ChainService(eth_ChainService):
             self.broadcast(vote, origin=proto)
         self.consensus_manager.process()
 
-    def on_receive_lockset(self, proto, lockset):
-        self.consensus_manager.log('on_receive_lockset', lockset=lockset)
-        if lockset.hash in self.broadcast_filter:
-            return
-        log.debug('----------------------------------')
-        log.debug("recv lockset", lockset=lockset, remote_id=proto)
-        self.consensus_manager.add_lockset(lockset, proto)
-        # not broadcasted
-        self.consensus_manager.process()
+    # def on_receive_lockset(self, proto, lockset):
+    #     self.consensus_manager.log('on_receive_lockset', lockset=lockset)
+    #     if lockset.hash in self.broadcast_filter:
+    #         return
+    #     log.debug('----------------------------------')
+    #     log.debug("recv lockset", lockset=lockset, remote_id=proto)
+    #     self.consensus_manager.add_lockset(lockset, proto)
+    #     # not broadcasted
+    #     self.consensus_manager.process()
 
     def on_receive_ready(self, proto, ready):
         if ready.hash in self.broadcast_filter:
@@ -498,7 +502,7 @@ class ChainService(eth_ChainService):
         proto.receive_votinginstruction_callbacks.append(self.on_receive_votinginstruction)
         proto.receive_vote_callbacks.append(self.on_receive_vote)
         proto.receive_ready_callbacks.append(self.on_receive_ready)
-        proto.receive_lockset_callbacks.append(self.on_receive_lockset)
+        # proto.receive_lockset_callbacks.append(self.on_receive_lockset)
 
         # send status
         proto.send_status(genesis_hash=self.chain.genesis.hash,
