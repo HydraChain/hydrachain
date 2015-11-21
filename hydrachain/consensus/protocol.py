@@ -128,13 +128,5 @@ class HDCProtocol(BaseProtocol):
         structure = [('vote', Vote)]
 
     class ready(BaseProtocol.command):
-
-        """
-        protocolVersion: The version of the HydraChain protocol this peer implements.
-        networkID: The network version of Ethereum for this peer.
-        GenesisHash: The hash of the Genesis block.
-        current_lockset: The lockset of the current round from the responding peer
-        """
         cmd_id = 7
-
         structure = [('ready', Ready)]

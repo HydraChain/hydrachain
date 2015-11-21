@@ -443,11 +443,13 @@ class BlockProposal(Proposal):
     @property
     def sender(self):
         # double check unmutable
-        assert self.rawhash == sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
-
         s = super(BlockProposal, self).sender
         if not s:
             raise InvalidProposalError('signature missing')
+        assert self.rawhash
+        assert self.v
+        _rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
+        assert self.rawhash == _rawhash
         assert len(s) == 20
         assert len(self.block.header.coinbase) == 20
         if s != self.block.header.coinbase:

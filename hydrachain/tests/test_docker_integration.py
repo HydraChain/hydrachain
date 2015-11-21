@@ -53,6 +53,7 @@ def pytest_runtest_setup(item):
 
 
 class DockerHarness(object):
+
     def __init__(self):
         self.base_dir = abspath(join(dirname(__file__), "..", "..", "docker", "dev", "hydrachain"))
 
@@ -138,6 +139,7 @@ class DockerHarness(object):
 
 
 class JSONRPCClient(OrigJSONRPCClient):
+
     def __init__(self, host="127.0.0.1", port=4000, print_communication=True, privkey=None,
                  sender=None):
         super(JSONRPCClient, self).__init__(port, print_communication, privkey, sender)
@@ -194,6 +196,7 @@ def wait_callback_or_timeout(callback, timeout, interval=.5):
 class TestDockerSetup(object):
 
     # Since we're (usually) runnnig tests serially the wait times are cumulative
+
     @pytest.mark.parametrize('wait', (0, 1, 4, 5, 5))
     def test_containers_up(self, docker_harness, wait):
         """
@@ -230,7 +233,7 @@ class TestDockerSetup(object):
         client = JSONRPCClient(*(targets[0].split(":")))
         client.send_transaction(
             client.coinbase,
-            "0000000000000000000000000000000000000001",
+            "1" * 40,
             1
         )
         assert wait_callback_or_timeout(

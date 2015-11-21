@@ -81,7 +81,7 @@ class ForkDetectedEvidence(ProtocolFailureEvidence):
 class ConsensusManager(object):
 
     allow_empty_blocks = False
-    num_initial_blocks = 100
+    num_initial_blocks = 10
     round_timeout = 3  # timeout when waiting for proposal
     round_timeout_factor = 1.5  # timeout increase per round
     transaction_timeout = 0.5  # delay when waiting for new transaction
@@ -179,6 +179,9 @@ class ConsensusManager(object):
     @property
     def coinbase(self):
         return self.chain.coinbase
+
+    def set_proposal_lock(self, block):
+        self.chainservice.set_proposal_lock(block)
 
     def __repr__(self):
         return '<CP A:%r H:%d R:%d L:%r %s>' % (phx(self.coinbase), self.height, self.round,
@@ -313,6 +316,11 @@ class ConsensusManager(object):
         is_valid = self.heights[p.height].add_proposal(p)
         return is_valid  # can be broadcasted
 
+    def add_lockset(self, ls, proto=None):
+        assert ls.is_valid
+        for v in ls:
+            self.add_vote(v)  # implicitly checks their validity
+
     def add_block_proposal(self, p):
         assert isinstance(p, BlockProposal)
         if self.has_blockproposal(p.blockhash):
@@ -360,29 +368,28 @@ class ConsensusManager(object):
     def setup_alarm(self):
         ar = self.active_round
         delay = ar.get_timeout()
-        if delay is not None:
-            if self.is_waiting_for_proposal:
+        self.log('in set up alarm', delay=delay)
+        if self.is_waiting_for_proposal:
+            if delay is not None:
                 self.chainservice.setup_alarm(delay, self.on_alarm, ar)
-                self.log('set up alarm', now=self.chainservice.now,
+                self.log('set up alarm on timeout', now=self.chainservice.now,
                          delay=delay, triggered=delay + self.chainservice.now)
-            else:
-                self.chainservice.setup_transaction_alarm(self.on_alarm, ar)
-                self.log('set up on tx alarm', now=self.chainservice.now)
+        else:
+            self.chainservice.setup_transaction_alarm(self.on_alarm, ar)
+            self.log('set up alarm on tx', now=self.chainservice.now)
 
     def on_alarm(self, ar):
         assert isinstance(ar, RoundManager)
         if self.active_round == ar:
             self.log('on alarm, matched', ts=self.chainservice.now)
+            self.active_round.timeout_time = None  # cancel alarm
             if not self.is_ready:
                 # defer alarm if not ready
                 self.log('not ready defering alarm', ts=self.chainservice.now)
-                self.send_ready()
-                self.active_round.timeout_time = None  # cancel alarm
                 self.setup_alarm()
             elif not self.is_waiting_for_proposal:
                 # defer alarm if there are no pending transactions
                 self.log('no txs defering alarm', ts=self.chainservice.now)
-                self.active_round.timeout_time = None  # cancel alarm
                 self.setup_alarm()
             else:
                 self.process()
@@ -398,6 +405,11 @@ class ConsensusManager(object):
         return self.chain.head_candidate.num_transactions() > 0
 
     def process(self):
+        h = self.height
+        r = self._process()
+        return r
+
+    def _process(self):
         self.log('-' * 40)
         self.log('in process')
         if not self.is_ready:
@@ -407,7 +419,7 @@ class ConsensusManager(object):
         self.commit()
         self.heights[self.height].process()
         if self.commit():  # re enter process if we did commit (e.g. to immediately propose)
-            return self.process()
+            return self._process()
         self.cleanup()
         self.synchronizer.process()
         self.setup_alarm()
@@ -620,8 +632,11 @@ class RoundManager(object):
         block = self.cm.chain.head_candidate
         # fix pow
         block.header.__class__ = HDCBlockHeader
+        block.should_be_locked = True
         bp = BlockProposal(self.height, self.round, block, signing_lockset, round_lockset)
         self.cm.sign(bp)
+        self.cm.set_proposal_lock(block)
+        assert self.cm.chainservice.proposal_lock.locked()
         return bp
 
     def propose(self):
