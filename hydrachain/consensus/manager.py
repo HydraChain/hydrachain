@@ -217,7 +217,7 @@ class ConsensusManager(object):
 
     @property
     def is_ready(self):
-        return len(self.ready_validators) >= len(self.contract.validators) * 2 / 3.
+        return len(self.ready_validators) > len(self.contract.validators) * 2 / 3.
 
     def send_ready(self):
         self.log('cm.send_ready')
