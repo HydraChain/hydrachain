@@ -130,11 +130,3 @@ class HDCProtocol(BaseProtocol):
     class ready(BaseProtocol.command):
         cmd_id = 7
         structure = [('ready', Ready)]
-
-    class lockset(BaseProtocol.command):
-
-        """
-        last quorum lockset
-        """
-        cmd_id = 8
-        structure = [('lockset', LockSet)]

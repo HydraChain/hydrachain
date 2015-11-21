@@ -434,16 +434,6 @@ class ChainService(eth_ChainService):
             self.broadcast(vote, origin=proto)
         self.consensus_manager.process()
 
-    # def on_receive_lockset(self, proto, lockset):
-    #     self.consensus_manager.log('on_receive_lockset', lockset=lockset)
-    #     if lockset.hash in self.broadcast_filter:
-    #         return
-    #     log.debug('----------------------------------')
-    #     log.debug("recv lockset", lockset=lockset, remote_id=proto)
-    #     self.consensus_manager.add_lockset(lockset, proto)
-    #     # not broadcasted
-    #     self.consensus_manager.process()
-
     def on_receive_ready(self, proto, ready):
         if ready.hash in self.broadcast_filter:
             return
@@ -502,7 +492,6 @@ class ChainService(eth_ChainService):
         proto.receive_votinginstruction_callbacks.append(self.on_receive_votinginstruction)
         proto.receive_vote_callbacks.append(self.on_receive_vote)
         proto.receive_ready_callbacks.append(self.on_receive_ready)
-        # proto.receive_lockset_callbacks.append(self.on_receive_lockset)
 
         # send status
         proto.send_status(genesis_hash=self.chain.genesis.hash,
@@ -518,7 +507,7 @@ class ChainService(eth_ChainService):
         """
         fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
                 VotingInstruction: 'votinginstruction', Transaction: 'transactions',
-                Ready: 'ready', LockSet: 'lockset'}
+                Ready: 'ready'}
         if self.broadcast_filter.update(obj.hash) == False:
             log.debug('already broadcasted', obj=obj)
             return
