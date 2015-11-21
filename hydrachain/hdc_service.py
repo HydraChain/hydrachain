@@ -93,9 +93,9 @@ class ProposalLock(gevent.lock.BoundedSemaphore):
         return self.locked()
 
     def acquire(self):
-        log.DEV('trying to acquire', lock=self)
+        log.debug('trying to acquire', lock=self)
         super(ProposalLock, self).acquire()
-        log.DEV('acquired', lock=self)
+        log.debug('acquired', lock=self)
 
     @property
     def height(self):
@@ -104,13 +104,13 @@ class ProposalLock(gevent.lock.BoundedSemaphore):
 
     def release(self, if_block=-1):
         assert self.is_locked()
-        log.DEV('in ProposalLock.relase', lock=self, if_block=if_block, block=self.block)
+        log.debug('in ProposalLock.relase', lock=self, if_block=if_block, block=self.block)
         if if_block != -1 and self.block and if_block != self.block:
-            log.DEV('could not release', lock=self)
+            log.debug('could not release', lock=self)
             return
         self.block = None
         super(ProposalLock, self).release()
-        log.DEV('released', lock=self)
+        log.debug('released', lock=self)
 
     def __repr__(self):
         return '<ProposalLock({}) locked={} {}>'.format(self.block, self.is_locked(), id(self))
@@ -247,16 +247,18 @@ class ChainService(eth_ChainService):
 
             def __call__(me, blk):
                 self.on_new_head_candidate_cbs.remove(me)
-                log.DEV('transaction alarm triggered')
+                log.debug('transaction alarm triggered')
                 cb(*args)
 
         self.on_new_head_candidate_cbs.append(Trigger())
 
     def commit_block(self, blk):
         assert isinstance(blk.header, HDCBlockHeader)
+        log.debug('trying to acquire transaction lock')
         self.add_transaction_lock.acquire()
         success = self.chain.add_block(blk,  forward_pending_transactions=True)
         self.add_transaction_lock.release()
+        log.debug('transaction lock release')
         log.info('new head', head=self.chain.head)
         return success
 
@@ -299,16 +301,14 @@ class ChainService(eth_ChainService):
 
     def add_transaction(self, tx, origin=None, force_broadcast=False):
         """
-        problem,
-            receive sent tx (or any)
-            can not aquire lock,
-                which blocks the whole channel
-                therefore will not receive votes
-                therefore will never proceed to the next block
+        Warning:
+        Locking proposal_lock may block incoming events which are necessary to unlock!
+        I.e. votes / blocks!
+        Take care!
         """
         self.consensus_manager.log(
             'add_transaction', blk=self.chain.head_candidate, lock=self.proposal_lock)
-        log.DEV('add_transaction', lock=self.proposal_lock)
+        log.debug('add_transaction', lock=self.proposal_lock)
         block = self.proposal_lock.block
         self.proposal_lock.acquire()
         self.consensus_manager.log('add_transaction acquired lock', lock=self.proposal_lock)
@@ -316,32 +316,32 @@ class ChainService(eth_ChainService):
         super(ChainService, self).add_transaction(tx, origin, force_broadcast)
         if self.proposal_lock.is_locked():  # can be unlock if we are at a new block
             self.proposal_lock.release(if_block=block)
-        log.DEV('added transaction', num_txs=self.chain.head_candidate.num_transactions())
+        log.debug('added transaction', num_txs=self.chain.head_candidate.num_transactions())
 
     def _on_new_head(self, blk):
         self.release_proposal_lock(blk)
         super(ChainService, self)._on_new_head(blk)
 
     def set_proposal_lock(self, blk):
-        log.DEV('set_proposal_lock', locked=self.proposal_lock)
+        log.debug('set_proposal_lock', locked=self.proposal_lock)
         if not self.proposal_lock.is_locked():
             self.proposal_lock.acquire()
         self.proposal_lock.block = blk
         assert self.proposal_lock.is_locked()  # can not be aquired
-        log.DEV('did set_proposal_lock', lock=self.proposal_lock)
+        log.debug('did set_proposal_lock', lock=self.proposal_lock)
 
     def release_proposal_lock(self, blk):
-        log.DEV('releasing proposal_lock', lock=self.proposal_lock)
+        log.debug('releasing proposal_lock', lock=self.proposal_lock)
         if self.proposal_lock.is_locked():
             if self.proposal_lock.height <= blk.number:
                 assert self.chain.head_candidate.number > self.proposal_lock.height
                 assert not hasattr(self.chain.head_candidate, 'should_be_locked')
                 assert not isinstance(self.chain.head_candidate.header, HDCBlockHeader)
                 self.proposal_lock.release()
-                log.DEV('released')
+                log.debug('released')
                 assert not self.proposal_lock.is_locked()
             else:
-                log.DEV('could not release', head=blk, lock=self.proposal_lock)
+                log.debug('could not release', head=blk, lock=self.proposal_lock)
 
     ###############################################################################
 
