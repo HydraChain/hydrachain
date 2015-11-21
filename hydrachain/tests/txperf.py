@@ -32,4 +32,4 @@ if __name__ == '__main__':
         num_clients = int(sys.argv[1])
     else:
         num_clients = 1
-    main(num_clients, 1)
+    main(num_clients, 10)

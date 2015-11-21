@@ -283,7 +283,7 @@ class Network(object):
         for n in self.nodes:
             if n.isactive:
                 cm = n.services.chainservice.consensus_manager
-                if self.simenv:   # set ready!
+                if True or self.simenv:   # set dummy ready!"
                     cm.ready_validators = set(range(int(len(cm.contract.validators))))
                     assert cm.is_ready
                 cm.process()
