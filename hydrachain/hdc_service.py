@@ -103,6 +103,7 @@ class ProposalLock(gevent.lock.BoundedSemaphore):
             return self.block.number
 
     def release(self, if_block=-1):
+        assert self.is_locked()
         log.DEV('in ProposalLock.relase', lock=self, if_block=if_block, block=self.block)
         if if_block != -1 and self.block and if_block != self.block:
             log.DEV('could not release', lock=self)
@@ -296,9 +297,9 @@ class ChainService(eth_ChainService):
             return
         return block
 
-    def add_transaction(self, tx, origin=None):
+    def add_transaction(self, tx, origin=None, force_broadcast=False):
         self.consensus_manager.log(
-            'add_transaction', to=self.chain.head_candidate, lock=self.proposal_lock)
+            'add_transaction', blk=self.chain.head_candidate, lock=self.proposal_lock)
         log.DEV('add_transaction', lock=self.proposal_lock)
         block = self.proposal_lock.block
         # gevent.sleep(1)
@@ -310,8 +311,10 @@ class ChainService(eth_ChainService):
         self.proposal_lock.acquire()
         self.consensus_manager.log('add_transaction acquired lock', lock=self.proposal_lock)
         assert not hasattr(self.chain.head_candidate, 'should_be_locked')
-        super(ChainService, self).add_transaction(tx, origin)
-        self.proposal_lock.release(if_block=block)
+        assert tx.hash not in self.broadcast_filter, self.broadcast_filter.filter
+        super(ChainService, self).add_transaction(tx, origin, force_broadcast)
+        if self.proposal_lock.is_locked():  # can be unlock if we are at a new block
+            self.proposal_lock.release(if_block=block)
         log.DEV('added transaction', num_txs=self.chain.head_candidate.num_transactions())
 
     def _on_new_head(self, blk):
