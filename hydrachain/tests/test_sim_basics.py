@@ -55,6 +55,9 @@ def test_transactions():
     app = network.nodes[0]
     chainservice = app.services.chainservice
 
+    # track txs
+    txs = []
+
     def cb(blk):
         log.DEV('ON NEW HEAD', blk=blk)
         if blk.number >= num_initial_blocks and blk.number < num_initial_blocks + num_txs:
@@ -82,6 +85,7 @@ def test_transactions():
                 network.simenv.process(_do())
             else:
                 gevent.spawn(_do)
+            txs.append(tx)
 
     chainservice.on_new_head_cbs.append(cb)
     network.start()
@@ -93,6 +97,17 @@ def test_transactions():
     assert_maxrounds(r)
     assert_heightdistance(r, max_distance=1)
     assert_blocktime(r, 1.5)
+
+    # check if all txs are received in all chains
+    tx_pos = set()
+    for app in network.nodes:
+        for tx in txs:
+            r = app.services.chainservice.chain.index.get_transaction(tx.hash)
+            assert len(r) == 3
+            t, blk, idx = r
+            assert tx == t
+            tx_pos.add(r)
+        assert len(tx_pos) == len(txs)
 
     # set to old value
     ConsensusManager.num_initial_blocks = _num_initial_blocks_orig
