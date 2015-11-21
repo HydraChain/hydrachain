@@ -42,7 +42,6 @@ def test_basic_singlenode():
     assert_blocktime(r, 1.5)
 
 
-@pytest.mark.xfail
 def test_transactions():
     sim_time = 5
     num_txs = 2
@@ -50,7 +49,7 @@ def test_transactions():
     num_initial_blocks = 2
     ConsensusManager.num_initial_blocks = num_initial_blocks
 
-    network = Network(num_nodes=4, simenv=True)
+    network = Network(num_nodes=4, simenv=False)
     network.connect_nodes()
     network.normvariate_base_latencies()
     app = network.nodes[0]
@@ -72,7 +71,17 @@ def test_transactions():
             tx = Transaction(nonce, gasprice, gas, to, value, data='')
             app.services.accounts.sign_tx(sender, tx)
             assert tx.sender == sender
-            success = chainservice.add_transaction(tx)
+
+            def _do():
+                log.DEV('ADDING TX', nonce=nonce)
+                success = chainservice.add_transaction(tx)
+                assert success
+                log.DEV('ADDED TX', success=success)
+
+            if network.simenv:
+                network.simenv.process(_do())
+            else:
+                gevent.spawn(_do)
 
     chainservice.on_new_head_cbs.append(cb)
     network.start()

@@ -313,10 +313,11 @@ class ChainService(eth_ChainService):
         self.proposal_lock.acquire()
         self.consensus_manager.log('add_transaction acquired lock', lock=self.proposal_lock)
         assert not hasattr(self.chain.head_candidate, 'should_be_locked')
-        super(ChainService, self).add_transaction(tx, origin, force_broadcast)
+        success = super(ChainService, self).add_transaction(tx, origin, force_broadcast)
         if self.proposal_lock.is_locked():  # can be unlock if we are at a new block
             self.proposal_lock.release(if_block=block)
         log.debug('added transaction', num_txs=self.chain.head_candidate.num_transactions())
+        return success
 
     def _on_new_head(self, blk):
         self.release_proposal_lock(blk)
