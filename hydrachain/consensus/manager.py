@@ -233,7 +233,10 @@ class ConsensusManager(object):
         self.ready_validators.add(ready.sender)
         self.log('cm.add_ready', validator=ready.sender)
         if self.is_ready:
-            self.log('cm.add_ready, sufficient count of validators ready')
+            self.log('cm.add_ready, sufficient count of validators ready',
+                     num=len(self.ready_validators))
+        else:
+            self.send_ready()
 
     def add_vote(self, v, proto=None):
         assert isinstance(v, Vote)
