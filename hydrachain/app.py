@@ -199,7 +199,7 @@ def start_app(config, accounts):
         # add to genesis alloc
         genesis_config['alloc'][address] = {'wei': config['test_privkeys_endowment']}
 
-    if config['test_privkeys']:
+    if config['test_privkeys'] and config['eth'].get('genesis_hash'):
         del config['eth']['genesis_hash']
 
     konfig.update_config_from_genesis_json(config, genesis_config)
