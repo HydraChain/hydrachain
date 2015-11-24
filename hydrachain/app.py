@@ -14,6 +14,7 @@ from pyethapp.jsonrpc import JSONRPCServer
 from pyethapp.accounts import AccountsService, Account
 import pyethapp.config as konfig
 import ethereum.slogging as slogging
+from ethereum.utils import denoms
 import pyethapp.app as pyethapp_app
 from pyethapp.accounts import mk_privkey
 from devp2p.crypto import privtopub as privtopub_raw
@@ -46,7 +47,12 @@ class HPCApp(pyethapp_app.EthApp):
     client_version_string = '%s/v%s' % (client_name, client_version)
     default_config = dict(BaseApp.default_config)
     default_config['client_version_string'] = client_version_string
-    default_config['post_app_start_callback'] = None
+    default_config['post_app_start_callbacks'] = []
+
+    # option to easily specify some unlocked and funded accounts
+    default_config['test_privkeys'] = []
+    default_config['test_privkeys_endowment'] = 1024 * denoms.ether
+
 
 pyethapp_app.EthApp = HPCApp
 pyethapp_app.app.help = b'Welcome to %s' % HPCApp.client_version_string
@@ -84,7 +90,7 @@ def rundummy(ctx, num_validators, node_num, seed):
     config['p2p']['min_peers'] = 2
     config['jsonrpc']['listen_port'] += node_num
 
-    app = start_app(config, account)
+    app = start_app(config, [account])
     serve_until_stopped(app)
 
 
@@ -122,7 +128,7 @@ def runmultiple(ctx, num_validators, seed):
         # deactivate console (note: maybe this could work with one console)
         n_config['deactivated_services'].append(Console.name)
         # n_config['deactivated_services'].append(ChainService.name)
-        app = start_app(n_config, account)
+        app = start_app(n_config, [account])
     serve_until_stopped(app)
 
 
@@ -150,7 +156,7 @@ def runlocal(ctx, num_validators, node_num, seed, nodial):
         config['discovery']['bootstrap_nodes'] = []
         config['p2p']['min_peers'] = 0
 
-    app = start_app(config, account)
+    app = start_app(config, [account])
     serve_until_stopped(app)
 
 
@@ -174,7 +180,8 @@ def _configure_node_network(config, num_validators, node_num, seed):
     return config, account
 
 
-def start_app(config, account):
+def start_app(config, accounts):
+
     # create app
     app = HPCApp(config)
 
@@ -182,15 +189,31 @@ def start_app(config, account):
     if False:
         gevent.get_hub().SYSTEM_ERROR = BaseException
 
+    # init accounts first, as we need (and set by copy) the coinbase early FIXME
+    genesis_config = dict(alloc=dict())
+    for privkey in config['test_privkeys']:
+        assert len(privkey) == 32
+        address = privtoaddr(privkey)
+        account = Account.new(password='', key=privkey)
+        accounts.append(account)
+        # add to genesis alloc
+        genesis_config['alloc'][address] = {'wei': config['test_privkeys_endowment']}
+
+    konfig.update_config_from_genesis_json(config, genesis_config)
+
     # dump config
     pyethapp_app.dump_config(config)
-    # init accounts first, as we need (and set by copy) the coinbase early FIXME
+
     if AccountsService in services:
         AccountsService.register_with_app(app)
-    # add account
-    app.services.accounts.add_account(account, store=False)
 
-    assert app.services.accounts.coinbase in config['hdc']['validators']
+    # add account
+    for account in accounts:
+        app.services.accounts.add_account(account, store=False)
+
+    if config['hdc']['validators']:
+        assert app.services.accounts.coinbase in config['hdc']['validators']
+
     # register services
     for service in services:
         assert issubclass(service, BaseService)
@@ -202,8 +225,8 @@ def start_app(config, account):
     # start app
     log.info('starting')
     app.start()
-    if config['post_app_start_callback'] is not None:
-        config['post_app_start_callback'](app)
+    for cb in config['post_app_start_callbacks']:
+        cb(app)
     return app
 
 
