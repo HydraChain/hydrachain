@@ -1,6 +1,6 @@
 rlp>=0.4.0
 pyethapp>=1.0.10
-c_secp256k1
+c_secp256k1==0.0.8
 bitcoin
 simpy
 pytest==2.8.2

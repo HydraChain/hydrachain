@@ -40,7 +40,7 @@ RUN pip install -e .
 
 RUN pip install -U setuptools
 # Pre-install hydrachain dependency
-RUN pip install https://github.com/czepluch/pysecp256k1/tarball/master#egg=c-secp256k1
+RUN pip install c-secp256k1==0.0.8
 
 
 ADD start.sh /root/start.sh
