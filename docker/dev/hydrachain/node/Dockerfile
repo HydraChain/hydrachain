@@ -38,6 +38,10 @@ WORKDIR /pyethapp
 RUN pip install -e .
 
 
+WORKDIR /
+RUN git clone https://github.com/HydraChain/hydrachain
+
+
 RUN pip install -U setuptools
 # Pre-install hydrachain dependency
 RUN pip install c-secp256k1==0.0.8

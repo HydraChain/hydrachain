@@ -41,7 +41,7 @@ if [ -f /pyethapp.src/setup.py ]; then
     pip install -e .
 fi
 
-cp -a /hydrachain.src /hydrachain
+rsync -a --delete /hydrachain.src/* /hydrachain/
 cd /hydrachain
 pip install -e .
 
