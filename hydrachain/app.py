@@ -25,7 +25,6 @@ from ethereum.keys import privtoaddr, PBKDF2_CONSTANTS
 from hydrachain.hdc_service import ChainService
 from hydrachain import __version__
 
-slogging.configure(config_string=':debug')
 log = slogging.get_logger('app')
 
 
