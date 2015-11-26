@@ -4,9 +4,12 @@ Running a local network with docker
 Prerequisites
 -------------
 
-- docker
+- docker (<= 1.8)
 - docker-compose
 
+
+Important: *Due to a change in how docker 1.9 manages container networking
+this suetup is currently only supported using docker 1.8.*
 
 Note: The following commands all have to be run from within the
 docker/dev/hydrachain directory
