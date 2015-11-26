@@ -211,7 +211,6 @@ def serve_until_stopped(*apps):
     evt = Event()
     gevent.signal(signal.SIGQUIT, evt.set)
     gevent.signal(signal.SIGTERM, evt.set)
-    gevent.signal(signal.SIGINT, evt.set)
     evt.wait()
     # finally stop
     for app in apps:
