@@ -34,9 +34,17 @@ install_requires_replacements = {}
 
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
-test_requirements = ['ethereum-serpent>=1.8.1', 'docker-compose==1.5.0']
+test_requirements = [
+    'ethereum-serpent>=1.8.1',
+    'docker-compose==1.5.0',
+    'bumpversion==0.5.3'
+]
 
-version = '0.0.8'  # preserve format, this is read from __init__.py
+
+# *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
+# see: https://github.com/ethereum/pyethapp/wiki/Development:-Versions-and-Releases
+version = '0.0.8'
+
 
 setup(
     name='hydrachain',
