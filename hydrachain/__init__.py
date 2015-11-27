@@ -3,6 +3,13 @@
 from pkg_resources import get_distribution, DistributionNotFound
 import os.path
 import subprocess
+import re
+
+
+GIT_DESCRIBE_RE = re.compile('^(?P<version>v\d+\.\d+\.\d+)-(?P<git>\d+-g[a-fA-F0-9]+(?:-dirty)?)$')
+
+
+__version__ = None
 try:
     _dist = get_distribution('hydrachain')
     # Normalize case for Windows systems
@@ -11,27 +18,20 @@ try:
     if not here.startswith(os.path.join(dist_loc, 'hydrachain')):
         # not installed, but there is another version that *is*
         raise DistributionNotFound
-except DistributionNotFound:
-    __version__ = None
-else:
     __version__ = _dist.version
+except DistributionNotFound:
+    pass
+
 if not __version__:
     try:
-        # try to parse from setup.py
-        for l in open(os.path.join(__path__[0], '..', 'setup.py')):
-            if l.startswith("version = '"):
-                __version__ = l.split("'")[1]
-                break
+        rev = subprocess.check_output(['git', 'describe', '--dirty'])
+        match = GIT_DESCRIBE_RE.match(rev)
+        if match:
+            __version__ = "{}+git-{}".format(match.group("version"), match.group("git"))
     except:
         pass
-    finally:
-        if not __version__:
-            __version__ = 'undefined'
-    # add git revision and commit status
-    try:
-        rev = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
-        is_dirty = len(subprocess.check_output(['git', 'diff', '--shortstat']).strip())
-        __version__ += '-' + rev[:4] + '-dirty' if is_dirty else ''
-    except:
-        pass
+
+if not __version__:
+    __version__ = 'undefined'
+
 # ########### endversion ##################
