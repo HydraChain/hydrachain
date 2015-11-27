@@ -64,7 +64,7 @@ Non-validating users of the system which must not know complete state (e.g. all 
 **Chain Inter-Operability**
 
 Multi-chain setups can solve scalability and privacy requirements.
-As the term *Hydra* in the name already hints, that the software will support to run a node which concurrently participates in multiple chains. Next to other applications, this allows to support cross chain assert transfers as a native feature.
+As the term *Hydra* in the name already hints, that the software will support to run a node which concurrently participates in multiple chains. Next to other applications, this allows to support cross chain asset transfers as a native feature.
 
 
 Setup & Invocation
