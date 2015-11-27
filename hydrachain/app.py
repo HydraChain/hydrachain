@@ -192,20 +192,21 @@ def start_app(config, accounts):
     if False:
         gevent.get_hub().SYSTEM_ERROR = BaseException
 
-    # init accounts first, as we need (and set by copy) the coinbase early FIXME
-    genesis_config = dict(alloc=dict())
-    for privkey in config['test_privkeys']:
-        assert len(privkey) == 32
-        address = privtoaddr(privkey)
-        account = Account.new(password='', key=privkey)
-        accounts.append(account)
-        # add to genesis alloc
-        genesis_config['alloc'][address] = {'wei': config['test_privkeys_endowment']}
+    if config['test_privkeys']:
+        # init accounts first, as we need (and set by copy) the coinbase early FIXME
+        genesis_config = dict(alloc=dict())
+        for privkey in config['test_privkeys']:
+            assert len(privkey) == 32
+            address = privtoaddr(privkey)
+            account = Account.new(password='', key=privkey)
+            accounts.append(account)
+            # add to genesis alloc
+            genesis_config['alloc'][address] = {'wei': config['test_privkeys_endowment']}
 
-    if config['test_privkeys'] and config['eth'].get('genesis_hash'):
-        del config['eth']['genesis_hash']
+        if config['test_privkeys'] and config['eth'].get('genesis_hash'):
+            del config['eth']['genesis_hash']
 
-    konfig.update_config_from_genesis_json(config, genesis_config)
+        konfig.update_config_from_genesis_json(config, genesis_config)
 
     # dump config
     pyethapp_app.dump_config(config)
