@@ -30,15 +30,13 @@ history = ''
 
 
 install_requires = set(x.strip() for x in open('requirements.txt'))
-install_requires_replacements = {
-    'https://github.com/czepluch/pysecp256k1/tarball/master#egg=c-secp256k1': 'c-secp256k1'
-}
+install_requires_replacements = {}
 
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
-test_requirements = ['ethereum-serpent>=1.8.1', 'docker-compose==1.5.0rc1']
+test_requirements = ['ethereum-serpent>=1.8.1', 'docker-compose==1.5.0']
 
-version = '0.0.6'  # preserve format, this is read from __init__.py
+version = '0.0.7'  # preserve format, this is read from __init__.py
 
 setup(
     name='hydrachain',
