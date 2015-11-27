@@ -184,7 +184,9 @@ class ChainService(eth_ChainService):
 
         log.info('chain at', number=self.chain.head.number)
         if 'genesis_hash' in sce:
-            assert sce['genesis_hash'] == self.chain.genesis.hex_hash()
+            assert sce['genesis_hash'] == self.chain.genesis.hex_hash(), \
+                "Unexpected genesis hash.\n    Have:     {}\n    Expected: {}".format(
+                    self.chain.genesis.hex_hash(), sce['genesis_hash'])
 
         self.transaction_queue = Queue(maxsize=self.transaction_queue_size)
         self.add_blocks_lock = False
