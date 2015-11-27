@@ -101,9 +101,10 @@ See the [Dockerfile templates](https://github.com/HydraChain/hydrachain/tree/mas
 
 Status: Work in Progress
 ------------------------
- - 26.11.2015 - v.0.0.7 - Various fixes; first PyPI release
- - 21.11.2015 - v.0.0.6 - Various fixes
- - 21.10.2015 - v.0.0.4 - Run multiple node instances in the same process
- - 16.10.2015 - v.0.0.3 - Update docker configuration
+ - 27.11.2015 - v0.0.8 - Automate PyPI release process
+ - 26.11.2015 - v0.0.7 - Various fixes; first PyPI release
+ - 21.11.2015 - v0.0.6 - Various fixes
+ - 21.10.2015 - v0.0.4 - Run multiple node instances in the same process
+ - 16.10.2015 - v0.0.3 - Update docker configuration
  - 18.09.2015 - Added zero config docker compose files
  - 09.09.2015 - Initial release, work in progress.
