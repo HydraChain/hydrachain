@@ -11,3 +11,12 @@ install:
   - pip install coveralls
 script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_syncing.py
 after_success: coveralls
+deploy:
+  provider: pypi
+  user: ethereum_pypi_automated
+  password:
+    secure: BoK2BzNSPO/tYi2wk39zxaLrn+UaN/ThAszyvFhL6Ki2Bcd8DNMDVwzXrludbAGuQ0u/FRzRzFPpTdhFlXr9/jxbxIgSJ5NF/4coC96Y0+j3d597yLgAbHx0O0cw24iRroN7ngz81udXdDEC/LIpJhGAAZCEHwN27PDo1bsqyzYfeR5LbaiAj7f7syRi2BTdxTZN7pijP6EgHNzTTfRL4eG+V12JJ8IKnWwtftrWWsR7f/LA/+fTP7wJ1+RYx226xQe/5CW04n3A5DZhGZlC8hwg7TJzHGhO1QpFpMz33b3kMBsmPtbMdrhNvXIpm68VnLSrjG5KOfccI91BCBEY2KNx9sYMqMgETpbAIc6SQOP1EziTb6V6h/FZr0X0srerv7KiQihf3o6VuCeo6njr4pqFS1x1e5wLyhRszUZP7NQY8LersHSKhF92rvLNZQ05cngTbRF3dCKakeQpDALhWAsI05cJjeqHUpXJOiIWiSPpi2RG1B07JRU6e1V+nqiyCY8CfDDGtsimcaXzReTsOAHJAY+2V32rVik4ZGkBnghH5gvgirrJHOBe4eeuoJkoYQZKmW+QuyI5dLnISj0bqgRT3u9mjI2wsd+FbEUm2rjf0JC67GP5vNiADZV7H05Y6nWD94SDd9aPqjc5VZ/UGfNgybLu1wHqfAHalcjM1Oc=
+  on:
+    tags: true
+    repo: HydraChain/hydrachain
+    branch: develop
