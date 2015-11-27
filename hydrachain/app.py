@@ -112,6 +112,7 @@ def runmultiple(ctx, num_validators, seed):
     config = ctx.obj['config']
     config['discovery']['bootstrap_nodes'] = [get_bootstrap_node(seed, base_port)]
 
+    apps = []
     for node_num in range(num_validators):
         n_config = copy.deepcopy(config)
         n_config, account = _configure_node_network(n_config, num_validators, node_num, seed)
@@ -130,8 +131,8 @@ def runmultiple(ctx, num_validators, seed):
         # deactivate console (note: maybe this could work with one console)
         n_config['deactivated_services'].append(Console.name)
         # n_config['deactivated_services'].append(ChainService.name)
-        app = start_app(n_config, [account])
-    serve_until_stopped(app)
+        apps.append(start_app(n_config, [account]))
+    serve_until_stopped(apps)
 
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')
