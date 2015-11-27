@@ -20,3 +20,6 @@ deploy:
     tags: true
     repo: HydraChain/hydrachain
     branch: develop
+  distributions: "sdist bdist_wheel"
+after_deploy:
+  - cat .pypirc
