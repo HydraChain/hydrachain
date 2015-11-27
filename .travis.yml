@@ -22,4 +22,4 @@ deploy:
     branch: develop
   distributions: "sdist bdist_wheel"
 after_deploy:
-  - cat .pypirc
+  - cat .dpl/.pypirc
