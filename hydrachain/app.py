@@ -3,6 +3,9 @@ import sys
 import click
 import gevent
 import copy
+
+from click.exceptions import BadParameter
+from click.types import IntRange
 from gevent.event import Event
 from devp2p.service import BaseService
 from devp2p.peermanager import PeerManager
@@ -133,7 +136,8 @@ def runmultiple(ctx, num_validators, seed):
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')
 @click.option('num_validators', '--num_validators', '-v', multiple=False,
-              type=int, default=4, help='number of validators')
+              type=IntRange(min=4), default=4, show_default=True,
+              help='number of validators; min. 4')
 @click.option('node_num', '--node_num', '-n', multiple=False,
               type=int, default=0, help='the node_num')
 @click.option('seed', '--seed', '-s', multiple=False,
@@ -141,9 +145,8 @@ def runmultiple(ctx, num_validators, seed):
 @click.option('--nodial/--dial',  default=False, help='do not dial nodes')
 @click.pass_context
 def runlocal(ctx, num_validators, node_num, seed, nodial):
-
-    assert node_num < num_validators
-    assert num_validators >= 4
+    if not 0 <= node_num < num_validators:
+        raise BadParameter("Node number must be between 0 and number of validators - 1")
 
     # reduce key derivation iterations
     config = ctx.obj['config']
