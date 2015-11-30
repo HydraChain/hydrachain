@@ -701,6 +701,50 @@ class Dict(List):
         raise NotImplementedError('unset keys return zero as a default')
 
 
+class IterableDict(Dict):
+
+    "Note, don't use this for a high number of keys, because it does not clean them up on deletion"
+
+    _counter_prefix = '__counter_prefix:{}'
+
+    def __getitem__(self, k):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+        return self.get(k)
+
+    def _ckey(self, idx):
+        assert isinstance(idx, int)
+        return self._counter_prefix.format(idx)
+
+    def __setitem__(self, k, v):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+        if not self.get(k):
+            i = self.get(b'__len__', value_type='uint32')
+            self.set(self._ckey(i), k, value_type='bytes')
+            self.set(b'__len__', i + 1, value_type='uint32')
+        self.set(k, v)
+        assert self.get(k) == v
+
+    def __contains__(self, idx):
+        raise NotImplementedError()
+
+    def keys(self):
+        return (k for k, v in self.items())
+
+    def values(self):
+        return (v for k, v in self.items())
+
+    def items(self):
+        _len = self.get(b'__len__', value_type='uint32')
+        keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
+        items = ((k, self.get(k)) for k in keys)
+        valid = ((k, v) for k, v in items if v)
+        return valid
+
+    __iter__ = keys
+
+
 class TypedStorageContract(NativeContractBase):
 
     """

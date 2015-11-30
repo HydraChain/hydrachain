@@ -271,6 +271,7 @@ def test_typed_storage():
         a = nc.Scalar('uint32')
         b = nc.List('uint16')
         c = nc.Dict('uint32')
+        d = nc.IterableDict('uint32')
 
         def _safe_call(ctx):
             # skalar
@@ -307,6 +308,21 @@ def test_typed_storage():
             assert ctx.c[key] == 33
             ctx.c[key] = 66
             assert ctx.c[key] == 66
+
+            # iterable dict
+            N = 10
+            for i in range(1, N + 1):
+                v = i**2
+                k = bytes(i)
+                ctx.d[k] = v
+                assert ctx.d[k] == v
+                assert len(list(ctx.d.keys())) == i
+                assert list(ctx.d.keys()) == [bytes(j) for j in range(1, i + 1)]
+                assert list(ctx.d.values()) == [j**2 for j in range(1, i + 1)]
+
+            # print list(ctx.d.keys())
+            # print list(ctx.d.values())
+            # print len(list(ctx.d.keys()))
 
             return 1, 1, []
 
