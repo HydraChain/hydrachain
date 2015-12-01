@@ -644,7 +644,7 @@ class TypedStorage(object):
         return big_endian_to_int(data)
 
     def _key(self, k):
-        return b'%s:%s' % (self._prefix, k)
+        return utils.sha3(b'%s:%s' % (self._prefix, k))
 
     def set(self, k=b'', v=None, value_type=None):
         assert v is not None
@@ -749,9 +749,9 @@ class TypedStorageContract(NativeContractBase):
 
     """
     class MyContract(TypedStorageContract):
-        storage = dict(a=nc.Scalar('uint32'),
-                       b=nc.List('uint16'),
-                       c=nc.Dict('uint32'))
+        a = nc.Scalar('uint32')
+        b = nc.List('uint16')
+        c = nc.Dict('uint32')
 
         def afunc(ctx):
             if not ctx.a:
