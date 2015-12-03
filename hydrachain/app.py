@@ -129,7 +129,7 @@ def runmultiple(ctx, num_validators, seed):
         konfig.setup_data_dir(n_config['data_dir'])
 
         # activate ipython console for the first validator
-        if not node_num == 0:
+        if node_num != 0:
             n_config['deactivated_services'].append(Console.name)
         # n_config['deactivated_services'].append(ChainService.name)
         apps.append(start_app(n_config, [account]))
