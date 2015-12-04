@@ -20,7 +20,7 @@ Creating Instances of NativeContracts
 
 Calling Instances of NativeContracts
     for CALL and CALLCODE
-    _apply_message queries the registry with the address and
+    _apply_msg queries the registry with the address and
     directly calls the native contract if available (FIXME: how to check existance)
 
 
@@ -147,7 +147,7 @@ class CreateNativeContractInstance(NativeContractBase):
     call with last 4 bytes of the address of the contract for which an instance should be created.
     i.e.  msg.data = ContractClass.address[-4:]
 
-    called by _apply_message
+    called by _apply_msg
         value was added to this contract (needs to be moved)
     """
 
