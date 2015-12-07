@@ -2,6 +2,7 @@ from ethereum import tester
 from ethereum import utils
 from hydrachain import native_contracts as nc
 from ethereum import abi
+import random, string
 import logging
 logging.NOTSET = logging.INFO
 tester.disable_logging()
@@ -264,6 +265,51 @@ def test_jsonabi():
 
 
 def test_typed_storage():
+
+    def randomword(length):
+        return ''.join(random.choice(string.lowercase) for i in range(length))
+
+    class TestTS(nc.TypedStorage):
+
+        def test_storage(ctx):
+            pass
+
+    class TestDict(dict):
+        pass
+
+    types = ['address', 'string', 'bytes', 'binary']
+    types += ['int%d' % (i * 8) for i in range(1, 33)]
+    types += ['uint%d' % (i * 8) for i in range(1, 33)]
+
+    random.seed(1) # a hardcoded seed to make the test deterministic
+
+    for t in types:
+        ts = TestTS(t)
+        td = dict() #TestDict()
+        randomprefix = randomword(random.randint(1, 10))
+        ts.setup(randomprefix,td.get,td.__setitem__)
+        if t == 'address':
+            address = utils.int_to_addr(random.randint(0,0xFFFFFFFF))
+            ts.set(randomprefix,address,t)
+            assert ts.get(randomprefix,t) == address
+        elif t == 'string' or t == 'bytes' or t=='binary':
+            word = randomword(10)
+            ts.set(randomprefix,word,t)
+            assert ts.get(randomprefix,t) == word
+        elif 'uint' in t:
+            size=int(t[4:])
+            v=random.randint(0,pow(2,size)-1)
+            ts.set(randomprefix,v,t)
+            assert ts.get(randomprefix,t) == v
+        elif 'int' in t:
+            size=int(t[3:])
+            v=random.randint(0,pow(2,size/2)-1)
+            ts.set(randomprefix,v,t)
+            assert ts.get(randomprefix,t) == v
+        else:
+            pass
+
+def test_typed_storage_contract():
 
     class TestTSC(nc.TypedStorageContract):
 
