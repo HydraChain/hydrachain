@@ -650,7 +650,6 @@ def test_nested_typed_storage_struct():
     original_key = nc.TypedStorage._key
     nc.TypedStorage._key = _key
 
-    # the storage cannot be defined globally as the calls would interfere
     td = dict()
     def _get( k):
         if k not in td:
