@@ -269,14 +269,6 @@ def test_typed_storage():
     def randomword(length):
         return ''.join(random.choice(string.lowercase) for i in range(length))
 
-    class TestTS(nc.TypedStorage):
-
-        def test_storage(ctx):
-            pass
-
-    class TestDict(dict):
-        pass
-
     types = ['address', 'string', 'bytes', 'binary']
     types += ['int%d' % (i * 8) for i in range(1, 33)]
     types += ['uint%d' % (i * 8) for i in range(1, 33)]
@@ -284,8 +276,8 @@ def test_typed_storage():
     random.seed(1) # a hardcoded seed to make the test deterministic
 
     for t in types:
-        ts = TestTS(t)
-        td = dict() #TestDict()
+        ts = nc.TypedStorage(t)
+        td = dict()
         randomprefix = randomword(random.randint(1, 10))
         ts.setup(randomprefix,td.get,td.__setitem__)
         if t == 'address':
