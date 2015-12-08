@@ -269,35 +269,33 @@ def test_typed_storage():
     def randomword(length):
         return ''.join(random.choice(string.lowercase) for i in range(length))
 
-    types = ['address', 'string', 'bytes', 'binary']
-    types += ['int%d' % (i * 8) for i in range(1, 33)]
-    types += ['uint%d' % (i * 8) for i in range(1, 33)]
-
+    types = nc.TypedStorage._valid_types
     random.seed(1) # a hardcoded seed to make the test deterministic
 
     for t in types:
         ts = nc.TypedStorage(t)
         td = dict()
         randomprefix = randomword(random.randint(1, 10))
+        randomkey = randomword(random.randint(1, 50))
         ts.setup(randomprefix,td.get,td.__setitem__)
         if t == 'address':
             address = utils.int_to_addr(random.randint(0,0xFFFFFFFF))
-            ts.set(randomprefix,address,t)
-            assert ts.get(randomprefix,t) == address
+            ts.set(randomkey,address,t)
+            assert ts.get(randomkey,t) == address
         elif t == 'string' or t == 'bytes' or t=='binary':
             word = randomword(10)
-            ts.set(randomprefix,word,t)
-            assert ts.get(randomprefix,t) == word
+            ts.set(randomkey,word,t)
+            assert ts.get(randomkey,t) == word
         elif 'uint' in t:
             size=int(t[4:])
-            v=random.randint(0,pow(2,size)-1)
-            ts.set(randomprefix,v,t)
-            assert ts.get(randomprefix,t) == v
+            v=random.randint(0,2**size-1)
+            ts.set(randomkey,v,t)
+            assert ts.get(randomkey,t) == v
         elif 'int' in t:
             size=int(t[3:])
-            v=random.randint(0,pow(2,size/2)-1)
-            ts.set(randomprefix,v,t)
-            assert ts.get(randomprefix,t) == v
+            v=random.randint(0,2**(size-2)-1)
+            ts.set(randomkey,v,t)
+            assert ts.get(randomkey,t) == v
         else:
             pass
 
