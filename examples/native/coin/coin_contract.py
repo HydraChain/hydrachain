@@ -1,7 +1,7 @@
 import hydrachain.native_contracts as nc
 from ethereum import utils
 import ethereum.slogging as slogging
-log = slogging.get_logger('ifs.contracts')
+log = slogging.get_logger('nc.coin')
 
 
 DEBUG = utils.DEBUG
@@ -33,15 +33,17 @@ class Coin(nc.NativeContract):
     holdings = nc.Dict('uint32')
     holders = nc.List('address')
 
-    # FIXME: call only once, call on init
     def init(ctx, returns=STATUS):
-        log.DEV('In Coin.init')
         if isaddress(ctx.owner):
             return FORBIDDEN
         ctx.owner = ctx.tx_origin
         ctx.holders.append(ctx.tx_origin)
         ctx.holdings[ctx.tx_origin] = 1000000
         return OK
+
+    @nc.constant
+    def creator(ctx, returns='address'):
+        return ctx.owner
 
     def sendCoin(ctx, _value='uint32', _to='address', returns=STATUS):
         if ctx.holdings[ctx.msg_sender] >= _value:
@@ -55,10 +57,6 @@ class Coin(nc.NativeContract):
             raise RuntimeError()
 
     @nc.constant
-    def creator(ctx, returns='address'):
-        return ctx.owner
-
-    @nc.constant
     def coinBalance(ctx, returns='uint32'):
         return ctx.holdings[ctx.msg_sender]
 
@@ -67,12 +65,11 @@ class Coin(nc.NativeContract):
         return ctx.holdings[_holder]
 
     @nc.constant
-    def num_holders(ctx, returns='uint32'):
+    def numHolders(ctx, returns='uint32'):
         return len(ctx.holders)
 
-    # FIXME: protect owner or company_address
     @nc.constant
-    def get_holders(ctx, returns='address[]'):
+    def getHolders(ctx, returns='address[]'):
         return list(ctx.holders)
 
 
@@ -89,4 +86,3 @@ def get_abi():
 if __name__ == '__main__':
     import json
     print json.dumps(get_abi())
-    print 'generating contract',

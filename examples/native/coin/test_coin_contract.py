@@ -5,6 +5,7 @@ logging.NOTSET = logging.ERROR
 
 import coin_contract as coinc
 
+
 def test_coin():
     state = tester.state()
     logs = []
@@ -48,7 +49,7 @@ def test_coin():
     assert coin_as_alice.coinBalanceOf(bob_address) == send_amount_bob
 
     # now we should have three coin holders
-    assert 3 == coin_as_alice.num_holders()
+    assert 3 == coin_as_alice.numHolders()
 
     # alice tries to spend more than she has
     alice_balance = send_amount_alice - send_amount_bob
@@ -61,7 +62,7 @@ def test_coin():
         print 'alice now', coin_as_alice.coinBalance()
         raise Exception('must fail')
 
-    r = coin_as_creator.get_holders()
+    r = coin_as_creator.getHolders()
     assert r == [admin_address, alice_address, bob_address]
 
     print logs
