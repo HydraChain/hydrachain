@@ -615,6 +615,8 @@ class TypedStorage(object):
     _valid_types += ['int%d' % (i * 8) for i in range(1, 33)]
     _valid_types += ['uint%d' % (i * 8) for i in range(1, 33)]
 
+    #TODO: add required types here
+
     def __init__(self, value_type):
         self._value_type = value_type
         assert value_type in self._valid_types
@@ -744,6 +746,25 @@ class IterableDict(Dict):
 
     __iter__ = keys
 
+class Struct(dict):
+    def __init__(self, **kwargs):
+        super(Struct,self).__init__()
+        for k,v in kwargs.iteritems():
+            self[k]=v
+            print "%s = %s" % (k, v)
+
+    def __getitem__(self, k):
+        assert isinstance(k, bytes), k
+        field = k.split('/')[0]
+        return self[field].get(k)
+
+    def __setitem__(self, k, v):
+        assert isinstance(k, bytes)
+        field = k.split('/')[0]
+        self[field].set(k, v)
+        assert self[field].get(k) == v
+
+    #TODO: add key handling
 
 class TypedStorageContract(NativeContractBase):
 
