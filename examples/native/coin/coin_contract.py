@@ -30,14 +30,12 @@ class Coin(nc.NativeContract):
     events = [CoinSent]
 
     owner = nc.Scalar('address')
-    holdings = nc.Dict('uint32')
-    holders = nc.List('address')
+    holdings = nc.IterableDict('uint32')
 
     def init(ctx, returns=STATUS):
         if isaddress(ctx.owner):
             return FORBIDDEN
         ctx.owner = ctx.tx_origin
-        ctx.holders.append(ctx.tx_origin)
         ctx.holdings[ctx.tx_origin] = 1000000
         return OK
 
@@ -47,14 +45,12 @@ class Coin(nc.NativeContract):
 
     def sendCoin(ctx, _value='uint32', _to='address', returns=STATUS):
         if ctx.holdings[ctx.msg_sender] >= _value:
-            if not ctx.holdings[_to]:
-                ctx.holders.append(_to)
             ctx.holdings[ctx.msg_sender] -= _value
             ctx.holdings[_to] += _value
             ctx.CoinSent(ctx.msg_sender, _value, _to)
             return OK
         else:
-            raise RuntimeError()
+            return INSUFFICIENTFUNDS
 
     @nc.constant
     def coinBalance(ctx, returns='uint32'):
@@ -66,11 +62,11 @@ class Coin(nc.NativeContract):
 
     @nc.constant
     def numHolders(ctx, returns='uint32'):
-        return len(ctx.holders)
+        return len(ctx.holdings)
 
     @nc.constant
     def getHolders(ctx, returns='address[]'):
-        return list(ctx.holders)
+        return list(ctx.holdings.keys())
 
 
 # register contracts
