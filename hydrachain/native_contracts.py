@@ -611,13 +611,13 @@ class TypedStorage(object):
     _set = None
     _get = None
 
-    _valid_types = ['address', 'string', 'bytes', 'binary']
+    _valid_types = ['address', 'string', 'bytes', 'binary', 'Struct']
     _valid_types += ['int%d' % (i * 8) for i in range(1, 33)]
     _valid_types += ['uint%d' % (i * 8) for i in range(1, 33)]
 
-    #TODO: add required types here
-
     def __init__(self, value_type):
+        if isinstance(value_type, TypedStorage):
+            value_type = value_type.__class__.__name__
         self._value_type = value_type
         assert value_type in self._valid_types
 
@@ -746,25 +746,24 @@ class IterableDict(Dict):
 
     __iter__ = keys
 
-class Struct(dict):
+class Struct(TypedStorage):
     def __init__(self, **kwargs):
-        super(Struct,self).__init__()
+        super(Struct,self).__init__('bytes')
         for k,v in kwargs.iteritems():
-            self[k]=v
-            print "%s = %s" % (k, v)
+            setattr(self, k, v)
 
-    def __getitem__(self, k):
-        assert isinstance(k, bytes), k
-        field = k.split('/')[0]
-        return self[field].get(k)
+    def slots(self):
+        return [(k, ts) for k, ts in vars(self).iteritems()
+                if isinstance(ts, TypedStorage)]
 
-    def __setitem__(self, k, v):
-        assert isinstance(k, bytes)
-        field = k.split('/')[0]
-        self[field].set(k, v)
-        assert self[field].get(k) == v
+    def setup(self, prefix, getter, setter):
+        assert isinstance(prefix, bytes)
+        self._prefix = prefix
+        self._set = setter
+        self._get = getter
+        for k, ts in self.slots():
+            ts.setup(k, getter, setter)
 
-    #TODO: add key handling
 
 class TypedStorageContract(NativeContractBase):
 
@@ -806,7 +805,7 @@ class TypedStorageContract(NativeContractBase):
             assert k.startswith('_')
             k = k[1:]
             ts.setup(k, get_storage_data, set_storage_data)
-            if isinstance(ts, (List, Dict)):
+            if isinstance(ts, (List, Dict, Struct)):
                 setattr(self, k, ts)
             else:
                 assert isinstance(ts, Scalar)
