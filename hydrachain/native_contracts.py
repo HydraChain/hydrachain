@@ -830,7 +830,7 @@ class Struct(TypedStorage):
         assert bytes(k) != bytes(0)
 
         if k in dir(self):
-            # TODO: think of a protection for the injection hack here
+            # TODO: Think of a protection for the injection hack here
             return super(Struct, self).__setattr__(k, v)
         if not self.get(k):
             i = self.get(b'__len__', value_type='uint32')

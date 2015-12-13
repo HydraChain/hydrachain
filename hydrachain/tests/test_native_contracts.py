@@ -399,7 +399,6 @@ def test_typed_storage_contract():
 
 def test_nested_typed_storage_list_in_dict():
 
-    # the storage cannot be defined globally as the calls would interfere
     td = dict()
     def _get( k):
         if k not in td:
