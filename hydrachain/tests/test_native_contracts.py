@@ -299,16 +299,6 @@ def test_typed_storage():
         else:
             pass
 
-def test_struct_storage():
-    #a = nc.Dict(nc.Struct(x=nc.List('unit32'), y=nc.Scalar('address')))
-    #contract.a['hello'].x[23412]
-    td = dict()
-    str = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
-    str.setup("randomprefix",td.get,td.__setitem__)
-    str.x[22]=456
-    print str.x[22]
-
-
 def test_typed_storage_contract():
 
     class TestTSC(nc.TypedStorageContract):
@@ -377,8 +367,8 @@ def test_typed_storage_contract():
             ctx.e.x[22]=456
             assert ctx.e.x[22] == 456
 
-            #ctx.f['hello'].x[23412]=24
-            #assert ctx.f['hello'].x[23412] == 24
+            ctx.f['hello'].x[23412]=24
+            assert ctx.f['hello'].x[23412] == 24
 
 
             return 1, 1, []

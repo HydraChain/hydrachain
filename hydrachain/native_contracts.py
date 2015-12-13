@@ -610,6 +610,7 @@ class TypedStorage(object):
     _prefix = b''
     _set = None
     _get = None
+    _struct_class = None
 
     _valid_types = ['address', 'string', 'bytes', 'binary', 'Struct']
     _valid_types += ['int%d' % (i * 8) for i in range(1, 33)]
@@ -658,6 +659,10 @@ class TypedStorage(object):
         value_type = value_type or self._value_type
         return self._db_decode_type(value_type, self._get(self._key(k)))
 
+    def slots(self):
+        return [(k, ts) for k, ts in vars(self).iteritems()
+                if isinstance(ts, TypedStorage)]
+
 
 class Scalar(TypedStorage):
     pass
@@ -690,17 +695,36 @@ class List(TypedStorage):
 
 class Dict(List):
 
+    _sample = None
+    _objs = dict()
+
+    def __init__(self, value_type):
+        super(Dict,self).__init__(value_type)
+        if isinstance(value_type, TypedStorage):
+            self._sample = value_type
     def __getitem__(self, k):
         assert isinstance(k, bytes), k
+        if self._value_type == 'Struct':
+            if k not in self._objs:
+                self._objs[k] = self._sample
+                self._objs[k].setup(k, self._get, self._set)
+            return self._objs[k]
         return self.get(k)
 
     def __setitem__(self, k, v):
         assert isinstance(k, bytes)
+        if self._value_type == 'Struct':
+            self._objs[k]= v
         self.set(k, v)
         assert self.get(k) == v
 
     def __contains__(self, k):
         raise NotImplementedError('unset keys return zero as a default')
+
+    def setup(self, prefix, getter, setter):
+        super(Dict,self).setup(prefix,getter,setter)
+        for k,v in self._objs:
+            v.setup(k, getter, setter)
 
 
 class IterableDict(Dict):
@@ -758,9 +782,7 @@ class Struct(TypedStorage):
 
     def setup(self, prefix, getter, setter):
         assert isinstance(prefix, bytes)
-        self._prefix = prefix
-        self._set = setter
-        self._get = getter
+        super(Struct,self).setup(prefix,getter,setter)
         for k, ts in self.slots():
             ts.setup(k, getter, setter)
 
