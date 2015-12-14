@@ -617,7 +617,8 @@ class TypedStorage(object):
 
     def __init__(self, value_type):
         self._value_type = value_type
-        assert value_type in self._valid_types
+        # allow nested types
+        assert isinstance(value_type, TypedStorage) or value_type in self._valid_types
 
     def setup(self, prefix, getter, setter):
         assert isinstance(prefix, bytes)
@@ -649,13 +650,26 @@ class TypedStorage(object):
     def set(self, k=b'', v=None, value_type=None):
         assert v is not None
         value_type = value_type or self._value_type
+        if isinstance(value_type, TypedStorage): # nested type
+            # dummy call to mark storage
+            value_type = 'uint16'
         v = self._db_encode_type(value_type, v)
         self._set(self._key(k), v)
 
     def get(self, k=b'', value_type=None):
         value_type = value_type or self._value_type
-        return self._db_decode_type(value_type, self._get(self._key(k)))
+        if isinstance(value_type, TypedStorage): # nested types
+            # create new instance
+            ts = value_type.__class__(value_type._value_type)
 
+            def _set(ts_k, v):
+                if not self._get(self._key(k)):
+                    self[k] = 1  # set dummy to indicate, that there is an object
+                self._set(ts_k, v)
+            ts.setup(k, self._get, _set)
+            return ts
+        r = self._db_decode_type(value_type, self._get(self._key(k)))
+        return r
 
 class Scalar(TypedStorage):
     pass
@@ -668,6 +682,7 @@ class List(TypedStorage):
         return self.get(bytes(i))
 
     def __setitem__(self, i, v):
+        i = int(i)
         assert isinstance(i, (int, long))
         self.set(bytes(i), v)
         if i >= len(self):
@@ -695,10 +710,13 @@ class Dict(List):
     def __setitem__(self, k, v):
         assert isinstance(k, bytes)
         self.set(k, v)
-        assert self.get(k) == v
 
     def __contains__(self, k):
         raise NotImplementedError('unset keys return zero as a default')
+
+    def __len__(self):
+        raise NotImplementedError('no len of dict available, use IterableDict')
+
 
 
 class IterableDict(Dict):
@@ -724,7 +742,6 @@ class IterableDict(Dict):
             self.set(self._ckey(i), k, value_type='bytes')
             self.set(b'__len__', i + 1, value_type='uint32')
         self.set(k, v)
-        assert self.get(k) == v
 
     def __contains__(self, idx):
         raise NotImplementedError()
@@ -744,6 +761,8 @@ class IterableDict(Dict):
 
     __iter__ = keys
 
+    def __len__(self):
+        return sum(1 for k in self.keys())
 
 class TypedStorageContract(NativeContractBase):
 
