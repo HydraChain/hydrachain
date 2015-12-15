@@ -132,7 +132,10 @@ def runmultiple(ctx, num_validators, seed):
         if node_num != 0:
             n_config['deactivated_services'].append(Console.name)
         # n_config['deactivated_services'].append(ChainService.name)
-        apps.append(start_app(n_config, [account]))
+        app = start_app(n_config, [account])
+        apps.append(app)
+        # hack to enable access to all apps in the console
+        app.apps = apps
     serve_until_stopped(apps)
 
 

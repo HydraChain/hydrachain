@@ -24,7 +24,8 @@ except DistributionNotFound:
 
 if not __version__:
     try:
-        rev = subprocess.check_output(['git', 'describe', '--tags', '--dirty'])
+        rev = subprocess.check_output(['git', 'describe', '--tags', '--dirty'],
+                                      stderr=subprocess.STDOUT)
         match = GIT_DESCRIBE_RE.match(rev)
         if match:
             __version__ = "{}+git-{}".format(match.group("version"), match.group("git"))
