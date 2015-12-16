@@ -371,182 +371,268 @@ def test_typed_storage_contract():
     nc.registry.unregister(TestTSC)
 
 
-def test_nested_typed_storage():
-
-    class TestTSC(nc.TypedStorageContract):
-        address = utils.int_to_addr(2051)
-        a = nc.Dict(nc.List('uint16'))
-        b = nc.Dict(nc.Dict('uint16'))
-        c = nc.List(nc.Dict('uint16'))
-        d = nc.List('uint16')
-        e = nc.IterableDict(nc.List('uint16'))
-        f = nc.IterableDict('uint16')
-        g = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
-        h = nc.Dict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
-        i = nc.List(nc.Struct(x=nc.Scalar('uint16'), y=nc.Dict('uint32'), z=nc.List('uint16')))
-        j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')),w=nc.Dict('uint16'))
-        k = nc.List(nc.List('address'))
-
-        def _safe_call(ctx):
-            # list nested in dict
-            assert isinstance(ctx.a, nc.Dict)
-            key = b'test'
-            idx = 0
-            l = ctx.a[key]
-            assert isinstance(l, nc.List)  # initialized with list
-            with pytest.raises(NotImplementedError):
-                assert len(ctx.a) == 0
-            assert len(l) == 0
-    
-            ctx.a[key][idx] = 33
-            assert l[idx] == 33
-            assert len(ctx.a[key]) == 1
-            assert len(l) == 1
-            assert ctx.a[key][idx] == 33
-            ctx.a[key][idx] = 66
-            assert len(l) == 1
-            assert ctx.a[key][idx] == 66
-            ctx.a[key][idx + 1] = 67
-            assert len(l) == 2
+def _key(self, k):
+    return b'%s:%s' % (self._prefix, k)
 
 
-            # second key
-
-            key = b'test2'
-            l = ctx.a[key]
-            assert isinstance(l, nc.List)  # initialized with list
-            assert len(l) == 0
-            ctx.a[key][idx] = 0
-
-            # nested dicts
-
-            da = ctx.b['A']
-            assert isinstance(da, nc.Dict)
-            assert da['B'] == 0
-            assert ctx.b['C']['D'] == 0
-
-            ctx.b['A']['B'] = 12
-            assert ctx.b['A']['B'] == 12
-
-            assert da['B'] == 12
-
-            # test list
-            assert ctx.d[2] == 0
-            ctx.d[2] = 1
-
-            # nested in lists
-
-            la = ctx.c[3]
-            assert isinstance(la, nc.Dict)
-            assert len(ctx.c) == 0
-            la['test'] = 1
-            assert len(ctx.c) == 4
-            assert ctx.c[3]['test'] == 1
-            ctx.c[2]['test2'] = 9
-            assert len(ctx.c) == 4
+nc.TypedStorage._key = _key
 
 
+def test_nested_typed_storage_list_in_dict():
 
-            # test IterableDict
+    #the storage cannot be defined globally as the calls would interfere
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
 
+    a = nc.Dict(nc.List('uint16'))
 
-            ctx.f['A'] = 1
-            assert len(ctx.f) == 1
-            ctx.f['A'] = 2
-            assert len(ctx.f) == 1
+    a.setup(b'a',_get,_set)
 
-            assert len(ctx.e) == 0
+    # list nested in dict
+    assert isinstance(a, nc.Dict)
+    key = b'test'
+    idx = 0
+    l = a[key]
+    assert isinstance(l, nc.List)  # initialized with list
+    with pytest.raises(NotImplementedError):
+        assert len(a) == 0
+    assert len(l) == 0
 
-            ctx.e['A'][1] = 42
-            assert len(ctx.e) == 1
-            assert len(ctx.e['A']) == 2
+    a[key][idx] = 33
+    assert l[idx] == 33
+    assert len(a[key]) == 1
+    assert len(l) == 1
+    assert a[key][idx] == 33
+    a[key][idx] = 66
+    assert len(l) == 1
+    assert a[key][idx] == 66
+    a[key][idx + 1] = 67
+    assert len(l) == 2
 
-            ctx.e['A'][2] = 43
-            assert len(ctx.e['A']) == 3
-            assert len(ctx.e) == 1
+    # second key
 
-            for k in ['A', 'B', 'C']:
-                for idx in range(3):
-                    ctx.e[k][idx] = 42 * (idx + 1)
-
-
-            assert set(ctx.e.keys()) == set(['A', 'B', 'C'])
-            assert len(ctx.e) == 3
-
-            for k in ['A', 'B', 'C']:
-                assert len(ctx.e[k]) == 3
-            for v in ctx.e.values():
-                assert len(v) == 3
-                assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
-
-
-            #test invalid types
-
-
-            with pytest.raises(AttributeError):
-                ctx.a.b == 81
-
-            with pytest.raises(ValueError):
-                ctx.a['one']['two'] = 63432
-
-            with pytest.raises(abi.ValueOutOfBounds):
-                ctx.a['one'][2] = 'somestr'
-
-            #with pytest.raises(AttributeError):
-                #ctx.k[1] = 2 # should raise an error but doesn't yet
-
-            #with pytest.raises(AttributeError):
-                #ctx.c[1] = 2 # should raise an error but doesn't yet
+    key = b'test2'
+    l = a[key]
+    assert isinstance(l, nc.List)  # initialized with list
+    assert len(l) == 0
+    a[key][idx] = 0
 
 
+def test_nested_typed_storage_dict():
+
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
+
+    b = nc.Dict(nc.Dict('uint16'))
+    c = nc.List(nc.Dict('uint16'))
+    d = nc.List('uint16')
 
 
-            # test Struct
+    b.setup(b'b',_get,_set)
+    d.setup(b'd',_get,_set)
 
 
-            ctx.g.x[538] = 78
-            assert ctx.g.x[538] == 78
-            ctx.g.y = 'abcde'
-            assert ctx.g.y == 'abcde'
+    # nested dicts
 
-            with pytest.raises(AttributeError):
-                assert ctx.g.idontexist == 0
+    da = b['A']
+    assert isinstance(da, nc.Dict)
+    assert da['B'] == 0
+    assert b['C']['D'] == 0
 
-            with pytest.raises(TypeError):
-                ctx.g[2354645] = 2540
+    b['A']['B'] = 12
+    assert b['A']['B'] == 12
 
-            with pytest.raises(TypeError):
-                assert ctx.g['imnotadict'] == 0
+    assert da['B'] == 12
 
-
-            ctx.h['abcde'].x[4891] = 875
-            assert ctx.h['abcde'].x[4891] == 875
-
-            ctx.i[2].x = 124
-            assert ctx.i[2].x == 124
-
-            ctx.i[3].y['here'] = 634
-            assert ctx.i[3].y['here'] == 634
-
-            ctx.i[4].z[41] = 88
-            assert ctx.i[4].z[41] == 88
-
-            ctx.j.v.w['then'] = 34
-            assert ctx.j.v.w['then'] == 34
-
-            ctx.j.v.x[471734] = 7
-            assert ctx.j.v.x[471734] == 7
-
-            ctx.j.v.y = 'theaddr'
-            assert ctx.j.v.y == 'theaddr'
+    # test list
+    assert d[2] == 0
+    d[2] = 1
 
 
-            return 1, 1, []
+def test_nested_typed_storage_list():
 
-    nc.registry.register(TestTSC)
-    s = tester.state()
-    r = s._send(tester.k0, TestTSC.address, 0)
-    nc.registry.unregister(TestTSC)
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
+
+    c = nc.List(nc.Dict('uint16'))
+    d = nc.List('uint16')
+
+    c.setup(b'c',_get,_set)
+    d.setup(b'd',_get,_set)
+
+    # test list
+    assert d[2] == 0
+    d[2] = 1
+
+    # nested in lists
+
+    la = c[3]
+    assert isinstance(la, nc.Dict)
+    assert len(c) == 0
+    la['test'] = 1
+    assert len(c) == 4
+    assert c[3]['test'] == 1
+    c[2]['test2'] = 9
+    assert len(c) == 4
+
+def test_nested_typed_storage_iterable_dict():
+
+    #the storage cannot be defined globally as the calls would interfere
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
+
+    e = nc.IterableDict(nc.List('uint16'))
+    f = nc.IterableDict('uint16')
+
+    e.setup(b'e',_get,_set)
+    f.setup(b'f',_get,_set)
+
+    # test IterableDict
+
+    f['A'] = 1
+    assert len(f) == 1
+    f['A'] = 2
+    assert len(f) == 1
+
+    assert len(e) == 0
+
+    e['A'][1] = 42
+    assert len(e) == 1
+    assert len(e['A']) == 2
+
+    e['A'][2] = 43
+    assert len(e['A']) == 3
+    assert len(e) == 1
+
+    for k in ['A', 'B', 'C']:
+        for idx in range(3):
+            e[k][idx] = 42 * (idx + 1)
+
+
+    assert set(e.keys()) == set(['A', 'B', 'C'])
+    assert len(e) == 3
+
+    for k in ['A', 'B', 'C']:
+        assert len(e[k]) == 3
+    for v in e.values():
+        assert len(v) == 3
+        assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
+
+
+def test_nested_typed_storage_invalid_types():
+
+    #the storage cannot be defined globally as the calls would interfere
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
+
+    a = nc.Dict(nc.List('uint16'))
+    c = nc.List(nc.Dict('uint16'))
+    k = nc.List(nc.List('address'))
+
+    a.setup(b'a',_get,_set)
+    c.setup(b'c',_get,_set)
+    k.setup(b'k',_get,_set)
+
+    #test invalid types
+
+    with pytest.raises(AttributeError):
+        a.b == 81
+
+    with pytest.raises(ValueError):
+        a['one']['two'] = 63432
+
+    with pytest.raises(abi.ValueOutOfBounds):
+        a['one'][2] = 'somestr'
+
+    #with pytest.raises(AttributeError):
+        #k[1] = 2 # should raise an error but doesn't yet
+
+    #with pytest.raises(AttributeError):
+        #c[1] = 2 # should raise an error but doesn't yet
+
+
+
+def test_nested_typed_storage_struct():
+
+    # the storage cannot be defined globally as the calls would interfere
+    td = dict()
+    def _get( k):
+        if k not in td:
+            td[k] = 0
+        return td[k]
+    def _set( k, v):
+        td[k]=v
+
+    g = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
+    h = nc.Dict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
+    i = nc.List(nc.Struct(x=nc.Scalar('uint16'), y=nc.Dict('uint32'), z=nc.List('uint16')))
+    j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'),w=nc.Dict('uint16')))
+
+    g.setup(b'g',_get,_set)
+    h.setup(b'h',_get,_set)
+    i.setup(b'i',_get,_set)
+    j.setup(b'j',_get,_set)
+
+    # test Struct
+
+    g.x[538] = 78
+    assert g.x[538] == 78
+    g.y = 'abcde'
+    assert g.y == 'abcde'
+
+    with pytest.raises(AttributeError):
+        assert g.idontexist == 0
+
+    with pytest.raises(TypeError):
+        g[2354645] = 2540
+
+    with pytest.raises(TypeError):
+        assert g['imnotadict'] == 0
+
+
+    h['abcde'].x[4891] = 875
+    assert h['abcde'].x[4891] == 875
+
+    i[3].y['here'] = 634
+    assert i[3].y['here'] == 634
+
+    i[4].z[41] = 88
+    assert i[4].z[41] == 88
+
+    j.v.w['then'] = 34
+    assert j.v.w['then'] == 34
+
+    j.v.x[471734] = 7
+    assert j.v.x[471734] == 7
+
+    j.v.y = 'theaddr'
+    assert j.v.y == 'theaddr'
+
 
 
 def test_nativeabicontract_with_storage():
