@@ -4,6 +4,7 @@ from hydrachain import native_contracts as nc
 from ethereum import abi
 import pytest
 import logging
+import random, string
 
 logging.NOTSET = logging.INFO
 tester.disable_logging()
@@ -267,6 +268,42 @@ def test_jsonabi():
 
 def test_typed_storage():
 
+    def randomword(length):
+        return ''.join(random.choice(string.lowercase) for i in range(length))
+
+    types = nc.TypedStorage._valid_types
+    random.seed(1) # a hardcoded seed to make the test deterministic
+
+    for t in types:
+        ts = nc.TypedStorage(t)
+        td = dict()
+        randomprefix = randomword(random.randint(1, 10))
+        randomkey = randomword(random.randint(1, 50))
+        ts.setup(randomprefix,td.get,td.__setitem__)
+        if t == 'address':
+            address = utils.int_to_addr(random.randint(0,0xFFFFFFFF))
+            ts.set(randomkey,address,t)
+            assert ts.get(randomkey,t) == address
+        elif t == 'string' or t == 'bytes' or t=='binary':
+            word = randomword(10)
+            ts.set(randomkey,word,t)
+            assert ts.get(randomkey,t) == word
+        elif 'uint' in t:
+            size=int(t[4:])
+            v=random.randint(0,2**size-1)
+            ts.set(randomkey,v,t)
+            assert ts.get(randomkey,t) == v
+        elif 'int' in t:
+            size=int(t[3:])
+            v=random.randint(0,2**(size-2)-1)
+            ts.set(randomkey,v,t)
+            assert ts.get(randomkey,t) == v
+        else:
+            pass
+
+
+def test_typed_storage_contract():
+
     class TestTSC(nc.TypedStorageContract):
 
         address = utils.int_to_addr(2050)
@@ -344,6 +381,11 @@ def test_nested_typed_storage():
         d = nc.List('uint16')
         e = nc.IterableDict(nc.List('uint16'))
         f = nc.IterableDict('uint16')
+        g = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
+        h = nc.Dict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
+        i = nc.List(nc.Struct(x=nc.Scalar('uint16'), y=nc.Dict('uint32'), z=nc.List('uint16')))
+        j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')),w=nc.Dict('uint16'))
+        k = nc.List(nc.List('address'))
 
         def _safe_call(ctx):
             # list nested in dict
@@ -436,6 +478,67 @@ def test_nested_typed_storage():
             for v in ctx.e.values():
                 assert len(v) == 3
                 assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
+
+
+            #test invalid types
+
+
+            with pytest.raises(AttributeError):
+                ctx.a.b == 81
+
+            with pytest.raises(ValueError):
+                ctx.a['one']['two'] = 63432
+
+            with pytest.raises(abi.ValueOutOfBounds):
+                ctx.a['one'][2] = 'somestr'
+
+            #with pytest.raises(AttributeError):
+                #ctx.k[1] = 2 # should raise an error but doesn't yet
+
+            #with pytest.raises(AttributeError):
+                #ctx.c[1] = 2 # should raise an error but doesn't yet
+
+
+
+
+            # test Struct
+
+
+            ctx.g.x[538] = 78
+            assert ctx.g.x[538] == 78
+            ctx.g.y = 'abcde'
+            assert ctx.g.y == 'abcde'
+
+            with pytest.raises(AttributeError):
+                assert ctx.g.idontexist == 0
+
+            with pytest.raises(TypeError):
+                ctx.g[2354645] = 2540
+
+            with pytest.raises(TypeError):
+                assert ctx.g['imnotadict'] == 0
+
+
+            ctx.h['abcde'].x[4891] = 875
+            assert ctx.h['abcde'].x[4891] == 875
+
+            ctx.i[2].x = 124
+            assert ctx.i[2].x == 124
+
+            ctx.i[3].y['here'] = 634
+            assert ctx.i[3].y['here'] == 634
+
+            ctx.i[4].z[41] = 88
+            assert ctx.i[4].z[41] == 88
+
+            ctx.j.v.w['then'] = 34
+            assert ctx.j.v.w['then'] == 34
+
+            ctx.j.v.x[471734] = 7
+            assert ctx.j.v.x[471734] == 7
+
+            ctx.j.v.y = 'theaddr'
+            assert ctx.j.v.y == 'theaddr'
 
 
             return 1, 1, []

@@ -42,6 +42,8 @@ from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endia
 from ethereum import slogging
 slogging.configure(config_string=':debug')
 log = slogging.get_logger('nc')
+from copy import deepcopy
+
 
 
 class Registry(object):
@@ -660,7 +662,11 @@ class TypedStorage(object):
         value_type = value_type or self._value_type
         if isinstance(value_type, TypedStorage): # nested types
             # create new instance
-            ts = value_type.__class__(value_type._value_type)
+            if isinstance(value_type, Struct):
+                #use prototyping here in order to reproduce the complex internal structure
+                ts = deepcopy(value_type)
+            else:
+                ts = value_type.__class__(value_type._value_type)
 
             def _set(ts_k, v):
                 if not self._get(self._key(k)):
@@ -764,6 +770,22 @@ class IterableDict(Dict):
     def __len__(self):
         return sum(1 for k in self.keys())
 
+class Struct(TypedStorage):
+    def __init__(self, **kwargs):
+        super(Struct,self).__init__('bytes')
+        for k,v in kwargs.iteritems():
+            setattr(self, k, v)
+
+    def slots(self):
+        return [(k, ts) for k, ts in vars(self).iteritems()
+                if isinstance(ts, TypedStorage)]
+
+    def setup(self, prefix, getter, setter):
+        assert isinstance(prefix, bytes)
+        super(Struct,self).setup(prefix,getter,setter)
+        for k, ts in self.slots():
+            ts.setup(k, getter, setter)
+
 class TypedStorageContract(NativeContractBase):
 
     """
@@ -804,7 +826,7 @@ class TypedStorageContract(NativeContractBase):
             assert k.startswith('_')
             k = k[1:]
             ts.setup(k, get_storage_data, set_storage_data)
-            if isinstance(ts, (List, Dict)):
+            if isinstance(ts, (List, Dict, Struct)):
                 setattr(self, k, ts)
             else:
                 assert isinstance(ts, Scalar)
