@@ -553,10 +553,7 @@ def test_nested_typed_storage_iterable_dict():
         assert len(v) == 3
         assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
 
-    f[b'somekey]'] = 1
     dl = len(f)
-    f[b'somekey]'] = 0 # The dictionary length reduces here. Not sure if such behavior is implemented intentionally, but it is at least confusing.
-    assert len(f) == dl
 
     for i in range(1000):
         f[b'key'+str(i)] = 1
@@ -615,7 +612,7 @@ def test_nested_typed_storage_struct():
         td[k]=v
 
     g = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
-    h = nc.Dict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
+    h = nc.IterableDict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
     i = nc.List(nc.Struct(x=nc.Scalar('uint16'), y=nc.Dict('uint32'), z=nc.List('uint16')))
     j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'),w=nc.Dict('uint16')))
 
@@ -643,12 +640,16 @@ def test_nested_typed_storage_struct():
 
     h['abcde'].x[4891] = 875
     assert h['abcde'].x[4891] == 875
+    assert len(h) == 1
 
     i[3].y['here'] = 634
     assert i[3].y['here'] == 634
 
     i[4].z[41] = 88
     assert i[4].z[41] == 88
+
+    assert len(i) == 5
+    assert len(i[4].z) == 42
 
     j.v.w['then'] = 34
     assert j.v.w['then'] == 34
