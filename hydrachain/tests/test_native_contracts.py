@@ -414,6 +414,13 @@ def test_nested_typed_storage_list_in_dict():
     a[key][idx + 1] = 67
     assert len(l) == 2
 
+    dl = len(l)
+    for i in range(65500, 66000):
+        l[i] = 1
+        l[i%100] = 2
+        l[i%300] = 3
+        assert len(l) == i + 1
+
     # second key
 
     key = b'test2'
@@ -471,9 +478,13 @@ def test_nested_typed_storage_list():
 
     c = nc.List(nc.Dict('uint16'))
     d = nc.List('uint16')
+    l = nc.List(nc.List('uint16'))
+    m = nc.List(nc.List('uint16'))
 
     c.setup(b'c',_get,_set)
     d.setup(b'd',_get,_set)
+    l.setup(b'l',_get,_set)
+    m.setup(b'm',_get,_set)
 
     # test list
     assert d[2] == 0
@@ -489,6 +500,10 @@ def test_nested_typed_storage_list():
     assert c[3]['test'] == 1
     c[2]['test2'] = 9
     assert len(c) == 4
+
+    l[5][6] = 8
+    m[5][6] = 9
+    assert l[5][6] != m[5][6]
 
 def test_nested_typed_storage_iterable_dict():
 
@@ -538,6 +553,17 @@ def test_nested_typed_storage_iterable_dict():
         assert len(v) == 3
         assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
 
+    f[b'somekey]'] = 1
+    dl = len(f)
+    f[b'somekey]'] = 0 # The dictionary length reduces here. Not sure if such behavior is implemented intentionally, but it is at least confusing.
+    assert len(f) == dl
+
+    for i in range(1000):
+        f[b'key'+str(i)] = 1
+        f[b'key'+str(i%100)] = 2
+        f[b'key'+str(i%500)] = 3
+        assert len(f) == i + 1 + dl
+
 
 def test_nested_typed_storage_invalid_types():
 
@@ -569,11 +595,11 @@ def test_nested_typed_storage_invalid_types():
     with pytest.raises(abi.ValueOutOfBounds):
         a['one'][2] = 'somestr'
 
-    #with pytest.raises(AttributeError):
-        #k[1] = 2 # should raise an error but doesn't yet
+    with pytest.raises(AttributeError):
+        k[1] = 2 # should raise an error but doesn't yet
 
-    #with pytest.raises(AttributeError):
-        #c[1] = 2 # should raise an error but doesn't yet
+    with pytest.raises(AttributeError):
+        c[1] = 2 # should raise an error but doesn't yet
 
 
 
@@ -632,6 +658,16 @@ def test_nested_typed_storage_struct():
 
     j.v.y = 'theaddr'
     assert j.v.y == 'theaddr'
+
+
+    # Whitebox key tests
+
+    assert 'h:abcde:x:4891' in td
+    assert 'i:3:y:here' in td
+    assert 'i:4:z:41' in td
+    assert 'j:v:w:then' in td
+    assert 'j:v:x:471734' in td
+    assert 'j:v:y' in td
 
 
 
