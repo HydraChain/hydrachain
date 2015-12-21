@@ -625,6 +625,7 @@ def test_nested_typed_storage_struct():
 
     g.x[538] = 78
     assert g.x[538] == 78
+    assert 'g:x:538' in td
     g.y = 'abcde'
     assert g.y == 'abcde'
 
@@ -640,35 +641,41 @@ def test_nested_typed_storage_struct():
 
     h['abcde'].x[4891] = 875
     assert h['abcde'].x[4891] == 875
+    assert 'h:abcde:x:4891' in td
     assert len(h) == 1
 
     i[3].y['here'] = 634
     assert i[3].y['here'] == 634
+    assert 'i:3:y:here' in td
 
     i[4].z[41] = 88
     assert i[4].z[41] == 88
+    assert 'i:4:z:41' in td
 
     assert len(i) == 5
     assert len(i[4].z) == 42
 
     j.v.w['then'] = 34
     assert j.v.w['then'] == 34
+    assert 'j:v:w:then' in td
 
     j.v.x[471734] = 7
     assert j.v.x[471734] == 7
+    assert 'j:v:x:471734' in td
 
     j.v.y = 'theaddr'
     assert j.v.y == 'theaddr'
+    assert 'j:v:y' in td
 
 
     # Whitebox key tests
 
-    assert 'h:abcde:x:4891' in td
-    assert 'i:3:y:here' in td
-    assert 'i:4:z:41' in td
-    assert 'j:v:w:then' in td
-    assert 'j:v:x:471734' in td
-    assert 'j:v:y' in td
+
+
+
+
+
+
 
 
 
