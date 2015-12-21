@@ -672,7 +672,7 @@ class TypedStorage(object):
                 if not self._get(self._key(k)):
                     self[k] = 1  # set dummy to indicate, that there is an object
                 self._set(ts_k, v)
-            ts.setup(k, self._get, _set)
+            ts.setup(self._key(k), self._get, _set)
             return ts
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
