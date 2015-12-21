@@ -784,7 +784,7 @@ class Struct(TypedStorage):
         assert isinstance(prefix, bytes)
         super(Struct,self).setup(prefix,getter,setter)
         for k, ts in self.slots():
-            ts.setup(k, getter, setter)
+            ts.setup(self._key(k), getter, setter)
 
 class TypedStorageContract(NativeContractBase):
 
