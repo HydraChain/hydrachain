@@ -197,7 +197,8 @@ class ChainService(eth_ChainService):
         self.newblock_processing_times = deque(maxlen=1000)
 
         # Consensus
-        self.consensus_contract = ConsensusContract(validators=self.config['hdc']['validators'])
+        validators = validators_from_config(self.config['hdc']['validators'])
+        self.consensus_contract = ConsensusContract(validators=validators)
         self.consensus_manager = ConsensusManager(self, self.consensus_contract,
                                                   self.consensus_privkey)
 
@@ -522,3 +523,15 @@ class ChainService(eth_ChainService):
               exclude_peers=[origin.peer] if origin else [])
 
     broadcast_transaction = broadcast
+
+
+def validators_from_config(validators):
+    """Consolidate (potentially hex-encoded) list of validators
+    into list of binary address representations.
+    """
+    result = []
+    for validator in validators:
+        if len(validator) == 40:
+            validator = validator.decode('hex')
+        result.append(validator)
+    return result

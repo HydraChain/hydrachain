@@ -310,7 +310,8 @@ def test_typed_storage_contract():
         a = nc.Scalar('uint32')
         b = nc.List('uint16')
         c = nc.Dict('uint32')
-        d = nc.IterableDict('uint32')
+        d = nc.IterableDict('uint256')
+        e = nc.IterableDict('string')
 
         def _safe_call(ctx):
             # skalar
@@ -348,7 +349,19 @@ def test_typed_storage_contract():
             ctx.c[key] = 66
             assert ctx.c[key] == 66
 
+            k = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x17q'
+            v = 2146209080
+
+            ctx.c[k] = v
+            assert ctx.c[k] == v
+
             # iterable dict
+
+            ctx.d[k] = v
+            assert len(ctx.d) == 1
+            assert ctx.d[k] == v
+            ctx.d[k] = 0
+
             N = 10
             for i in range(1, N + 1):
                 v = i**2
@@ -359,9 +372,21 @@ def test_typed_storage_contract():
                 assert list(ctx.d.keys()) == [bytes(j) for j in range(1, i + 1)]
                 assert list(ctx.d.values()) == [j**2 for j in range(1, i + 1)]
 
-            # print list(ctx.d.keys())
-            # print list(ctx.d.values())
-            # print len(list(ctx.d.keys()))
+            # iterable dict with strings
+            N = 10
+            for i in range(1, N + 1):
+                v = str(i**2)
+                k = bytes(i)
+                ctx.e[k] = v
+                # log.DEV('kv', k=k, v=v)
+                assert ctx.e[k] == v, ctx.e[k]
+                assert len(list(ctx.e.keys())) == i
+                assert list(ctx.e.keys()) == [bytes(j) for j in range(1, i + 1)]
+                assert list(ctx.e.values()) == [str(j**2) for j in range(1, i + 1)]
+
+            print list(ctx.e.keys())
+            print list(ctx.e.values())
+            print len(list(ctx.e.keys()))
 
             return 1, 1, []
 

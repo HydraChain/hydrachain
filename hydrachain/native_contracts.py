@@ -485,15 +485,16 @@ class ABIEvent(object):
         ctx._ext.log(ctx.address, topics, data)
 
     @classmethod
-    def listen(cls, log, address=None, callback=None):
-        if not len(log.topics) or log.topics[0] != cls.event_id():
+    def listen(cls, log_, address=None, callback=None):
+        if not len(log_.topics) or log_.topics[0] != cls.event_id():
             return
-        if address and address != log.address:
+        if address and address != log_.address:
             return
         o = {}
-        for i, t in enumerate(log.topics[1:]):
+        for i, t in enumerate(log_.topics[1:]):
             name = cls.args[i]['name']
             if cls.arg_types()[i] in ('string', 'bytes'):
+                assert t < 2**256  # FIXME
                 d = encode_int(t)
             else:
                 d = zpad(encode_int(t), 32)
@@ -501,7 +502,7 @@ class ABIEvent(object):
             o[name] = data
         o['event_type'] = cls.__name__
         unindexed_types = [a['type'] for a in cls.args if not a['indexed']]
-        o['args'] = abi.decode_abi(unindexed_types, log.data)
+        o['args'] = abi.decode_abi(unindexed_types, log_.data)
         if callback:
             callback(o)
         else:
@@ -647,20 +648,23 @@ class TypedStorage(object):
         return big_endian_to_int(data)
 
     def _key(self, k):
+        assert isinstance(k, bytes)
+        k = zpad(k, 32)
         return utils.sha3(b'%s:%s' % (self._prefix, k))
 
     def set(self, k=b'', v=None, value_type=None):
         assert v is not None
         value_type = value_type or self._value_type
-        if isinstance(value_type, TypedStorage): # nested type
+        if isinstance(value_type, TypedStorage):  # nested type
             # dummy call to mark storage
             value_type = 'uint16'
-        v = self._db_encode_type(value_type, v)
-        self._set(self._key(k), v)
+        # log.DEV('setting', cls=self.__class__, k=k, v=v)
+        v_ = self._db_encode_type(value_type, v)
+        self._set(self._key(k), v_)
 
     def get(self, k=b'', value_type=None):
         value_type = value_type or self._value_type
-        if isinstance(value_type, TypedStorage): # nested types
+        if isinstance(value_type, TypedStorage):  # nested types
             # create new instance
             if isinstance(value_type, Struct):
                 #use prototyping here in order to reproduce the complex internal structure
@@ -676,6 +680,7 @@ class TypedStorage(object):
             return ts
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
+
 
 class Scalar(TypedStorage):
     pass
@@ -762,7 +767,8 @@ class IterableDict(Dict):
         _len = self.get(b'__len__', value_type='uint32')
         keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
         items = ((k, self.get(k)) for k in keys)
-        valid = ((k, v) for k, v in items if v)
+        valid = list((k, v) for k, v in items if v)
+        # log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
         return valid
 
     __iter__ = keys
