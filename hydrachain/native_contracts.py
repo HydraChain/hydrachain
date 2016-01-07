@@ -769,7 +769,7 @@ class IterableDict(Dict):
 
     def __len__(self):
         return sum(1 for k in self.keys())
-
+'''
 class Struct(TypedStorage):
     def __init__(self, **kwargs):
         super(Struct,self).__init__('bytes')
@@ -785,7 +785,7 @@ class Struct(TypedStorage):
         super(Struct,self).setup(prefix,getter,setter)
         for k, ts in self.slots():
             ts.setup(self._key(k), getter, setter)
-
+'''
 class TypedStorageContract(NativeContractBase):
 
     """
