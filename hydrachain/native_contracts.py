@@ -646,20 +646,23 @@ class TypedStorage(object):
         return big_endian_to_int(data)
 
     def _key(self, k):
+        assert isinstance(k, bytes)
+        k = zpad(k, 32)
         return utils.sha3(b'%s:%s' % (self._prefix, k))
 
     def set(self, k=b'', v=None, value_type=None):
         assert v is not None
         value_type = value_type or self._value_type
-        if isinstance(value_type, TypedStorage): # nested type
+        if isinstance(value_type, TypedStorage):  # nested type
             # dummy call to mark storage
             value_type = 'uint16'
-        v = self._db_encode_type(value_type, v)
-        self._set(self._key(k), v)
+        # log.DEV('setting', cls=self.__class__, k=k, v=v)
+        v_ = self._db_encode_type(value_type, v)
+        self._set(self._key(k), v_)
 
     def get(self, k=b'', value_type=None):
         value_type = value_type or self._value_type
-        if isinstance(value_type, TypedStorage): # nested types
+        if isinstance(value_type, TypedStorage):  # nested types
             # create new instance
             ts = value_type.__class__(value_type._value_type)
 
@@ -671,6 +674,7 @@ class TypedStorage(object):
             return ts
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
+
 
 class Scalar(TypedStorage):
     pass
@@ -757,7 +761,8 @@ class IterableDict(Dict):
         _len = self.get(b'__len__', value_type='uint32')
         keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
         items = ((k, self.get(k)) for k in keys)
-        valid = ((k, v) for k, v in items if v)
+        valid = list((k, v) for k, v in items if v)
+        # log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
         return valid
 
     __iter__ = keys
