@@ -483,15 +483,16 @@ class ABIEvent(object):
         ctx._ext.log(ctx.address, topics, data)
 
     @classmethod
-    def listen(cls, log, address=None, callback=None):
-        if not len(log.topics) or log.topics[0] != cls.event_id():
+    def listen(cls, log_, address=None, callback=None):
+        if not len(log_.topics) or log_.topics[0] != cls.event_id():
             return
-        if address and address != log.address:
+        if address and address != log_.address:
             return
         o = {}
-        for i, t in enumerate(log.topics[1:]):
+        for i, t in enumerate(log_.topics[1:]):
             name = cls.args[i]['name']
             if cls.arg_types()[i] in ('string', 'bytes'):
+                assert t < 2**256  # FIXME
                 d = encode_int(t)
             else:
                 d = zpad(encode_int(t), 32)
@@ -499,7 +500,7 @@ class ABIEvent(object):
             o[name] = data
         o['event_type'] = cls.__name__
         unindexed_types = [a['type'] for a in cls.args if not a['indexed']]
-        o['args'] = abi.decode_abi(unindexed_types, log.data)
+        o['args'] = abi.decode_abi(unindexed_types, log_.data)
         if callback:
             callback(o)
         else:
