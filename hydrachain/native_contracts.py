@@ -771,10 +771,44 @@ class IterableDict(Dict):
         return sum(1 for k in self.keys())
 
 class Struct(TypedStorage):
+
+    _counter_prefix = '__counter_prefix:{}'
+
     def __init__(self, **kwargs):
-        super(Struct,self).__init__('bytes')
+        super(Struct,self).__init__('uint16')
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
+
+    def __getattr__(self, k, *default):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+        r = 0
+        # the method can be called before setup, e.g. by deep_copy for _value_type, so check
+        if self._get:
+            r = self.get(k)
+        if r == 0:
+            if len(default) > 0:
+                return default[0]
+            raise AttributeError(k)
+        return r
+
+    def _ckey(self, idx):
+        assert isinstance(idx, int)
+        return self._counter_prefix.format(idx)
+
+    def __setattr__(self, k, v):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+        #if hasattr(super(Struct, self), k):
+        #if k in dir(TypedStorage):
+        if getattr(super(Struct, self), k, None):
+            # TODO: think of a protection for the injection hack here
+            return super(Struct, self).__setattr__(k, v)
+        if not self.get(k):
+            i = self.get(b'__len__', value_type='uint32')
+            self.set(self._ckey(i), k, value_type='bytes')
+            self.set(b'__len__', i + 1, value_type='uint32')
+        self.set(k, v)
 
     def slots(self):
         return [(k, ts) for k, ts in vars(self).iteritems()
@@ -785,6 +819,7 @@ class Struct(TypedStorage):
         super(Struct,self).setup(prefix,getter,setter)
         for k, ts in self.slots():
             ts.setup(self._key(k), getter, setter)
+
 
 class TypedStorageContract(NativeContractBase):
 
