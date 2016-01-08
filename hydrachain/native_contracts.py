@@ -610,6 +610,7 @@ def tester_create_native_contract_instance(state, sender, contract, value=0):
 class TypedStorage(object):
 
     _prefix = b''
+    _value_type = ''
     _set = None
     _get = None
 
@@ -674,6 +675,9 @@ class TypedStorage(object):
                 self._set(ts_k, v)
             ts.setup(self._key(k), self._get, _set)
             return ts
+        if isinstance(self, Struct):
+            if k in self._nested_types.keys():
+                return self._nested_types[k]
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
 
@@ -773,13 +777,15 @@ class IterableDict(Dict):
 class Struct(TypedStorage):
 
     _counter_prefix = '__counter_prefix:{}'
+    _nested_types = dict()
 
     def __init__(self, **kwargs):
         super(Struct,self).__init__('uint16')
-        for k,v in kwargs.iteritems():
-            setattr(self, k, v)
+        self._nested_types = kwargs.copy()
+        #for k,v in kwargs.iteritems():
+        #    setattr(self, k, v)
 
-    def __getattr__(self, k, *default):
+    '''def __getattr__(self, k, *default):
         assert isinstance(k, bytes)
         assert bytes(k) != bytes(0)
         r = 0
@@ -791,6 +797,27 @@ class Struct(TypedStorage):
                 return default[0]
             raise AttributeError(k)
         return r
+    '''
+
+    def __getattribute__(self, k, *default):
+        try:
+            superattr = object.__getattribute__(self, k)
+            return superattr
+        except AttributeError:
+            pass
+        #if  superattr != None:
+        #    return superattr
+
+        r = 0
+        # the method can be called before setup, e.g. by deep_copy for _value_type, so check
+        if self._get:
+            r = self.get(k)
+        if r == 0:
+            if len(default) > 0:
+                return default[0]
+            raise AttributeError(k)
+        return r
+
 
     def _ckey(self, idx):
         assert isinstance(idx, int)
@@ -801,7 +828,10 @@ class Struct(TypedStorage):
         assert bytes(k) != bytes(0)
         #if hasattr(super(Struct, self), k):
         #if k in dir(TypedStorage):
-        if getattr(super(Struct, self), k, None):
+        #if getattr(super(Struct, self), k, None):
+        #if super(Struct, self).__getattr__(k):
+        #superattr = object.__getattribute__(self, k)
+        if k in dir(self):
             # TODO: think of a protection for the injection hack here
             return super(Struct, self).__setattr__(k, v)
         if not self.get(k):
@@ -817,7 +847,7 @@ class Struct(TypedStorage):
     def setup(self, prefix, getter, setter):
         assert isinstance(prefix, bytes)
         super(Struct,self).setup(prefix,getter,setter)
-        for k, ts in self.slots():
+        for k, ts in self._nested_types.iteritems():
             ts.setup(self._key(k), getter, setter)
 
 
