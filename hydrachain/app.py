@@ -3,6 +3,7 @@ import sys
 import click
 import gevent
 import copy
+import os
 
 from click.exceptions import BadParameter
 from click.types import IntRange
@@ -125,7 +126,7 @@ def runmultiple(ctx, num_validators, seed):
         n_config['client_version_string'] = 'NODE{}'.format(node_num)
 
         # have multiple datadirs
-        n_config['data_dir'] += str(node_num)
+        n_config['data_dir'] = os.path.join(n_config['data_dir'], str(node_num))
         konfig.setup_data_dir(n_config['data_dir'])
 
         # activate ipython console for the first validator
