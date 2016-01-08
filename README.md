@@ -70,11 +70,16 @@ As the term *Hydra* in the name already hints, that the software will support to
 Setup & Invocation
 ------
 
+**Install dependencies on Ubuntu**
+
+    > sudo apt-get install libssl-dev libffi-dev libtool python-dev autoconf automake
+
 **Installation**
 
     > git clone https://github.com/HydraChain/hydrachain
     > cd hydrachain
     > python setup.py develop
+
 
 **Multiple nodes in a single process**
 
