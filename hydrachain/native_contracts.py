@@ -83,6 +83,9 @@ class Registry(object):
         assert issubclass(contract, NativeContractBase)
         assert len(contract.address) == 20
         assert contract.address.startswith(self.native_contract_address_prefix)
+        if self.native_contracts.get(contract.address) == contract._on_msg:
+            log.debug("already registered", contract=contract, address=contract.address)
+            return
         assert contract.address not in self.native_contracts, 'address already taken'
         self.native_contracts[contract.address] = contract._on_msg
         log.debug("registered native contract", contract=contract, address=contract.address)
