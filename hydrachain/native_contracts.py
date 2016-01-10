@@ -358,6 +358,7 @@ class NativeABIContract(NativeContractBase):
         assert arg_names.pop() == 'returns'  # must be last element
         return_types = arg_types.pop()  # can be list or multiple
         name = method.__func__.func_name
+        assert not name.startswith('_')
         m_id = abi.method_id(name, arg_types)
         return dict(id=m_id, arg_types=arg_types, arg_names=arg_names, return_types=return_types,
                     name=name, method=method)
@@ -802,14 +803,20 @@ class TypedStorageContract(NativeContractBase):
 
         # move TypedStorage members to _protected (so we can reinitialize them later).
         def slots():
-            return [(k, ts) for k, ts in self.__class__.__dict__.items()
-                    if isinstance(ts, TypedStorage)]
+            return [(k, getattr(self.__class__, k)) for k in dir(self.__class__)
+                        if isinstance(getattr(self.__class__, k), TypedStorage)]
+
+        # log.DEV('preparing storage', klass=self.__class__, slots=slots())
         for k, ts in slots():
             if not k.startswith('_'):
                 setattr(self.__class__, '_' + k, ts)
-                delattr(self.__class__, k)
+                try:
+                    delattr(self.__class__, k)
+                except AttributeError as e:
+                    pass # from parent class
+
         # create members (on each invocation!)
-        for k, ts in slots():
+        for k, ts in [(k, ts) for k, ts in slots() if k.startswith('_')]:
             assert k.startswith('_')
             k = k[1:]
             ts.setup(k, get_storage_data, set_storage_data)
@@ -819,6 +826,7 @@ class TypedStorageContract(NativeContractBase):
                 assert isinstance(ts, Scalar)
 
                 def _mk_property(skalar):
+                    # log.DEV('creating property for', klass=self.__class__, k=k, skalar=skalar)
                     return property(lambda s: skalar.get(), lambda s, v: skalar.set(v=v))
                 setattr(self.__class__, k, _mk_property(ts))
 
