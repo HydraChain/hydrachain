@@ -660,6 +660,11 @@ class TypedStorage(object):
             # dummy call to mark storage
             value_type = 'uint16'
         # log.DEV('setting', cls=self.__class__, k=k, v=v)
+        if isinstance(self, Struct):
+            if k in self._nested_types.keys():
+                if isinstance(self._nested_types[k], TypedStorage):  # nested type
+                    # dummy call to mark storage
+                    value_type = 'uint16'
         v_ = self._db_encode_type(value_type, v)
         self._set(self._key(k), v_)
 
@@ -733,7 +738,6 @@ class Dict(List):
         raise NotImplementedError('no len of dict available, use IterableDict')
 
 
-
 class IterableDict(Dict):
 
     "Note, don't use this for a high number of keys, because it does not clean them up on deletion"
@@ -780,6 +784,7 @@ class IterableDict(Dict):
     def __len__(self):
         return sum(1 for k in self.keys())
 
+
 class Struct(TypedStorage):
 
     _counter_prefix = '__counter_prefix:{}'
@@ -788,22 +793,6 @@ class Struct(TypedStorage):
     def __init__(self, **kwargs):
         super(Struct,self).__init__('uint16')
         self._nested_types = kwargs.copy()
-        #for k,v in kwargs.iteritems():
-        #    setattr(self, k, v)
-
-    '''def __getattr__(self, k, *default):
-        assert isinstance(k, bytes)
-        assert bytes(k) != bytes(0)
-        r = 0
-        # the method can be called before setup, e.g. by deep_copy for _value_type, so check
-        if self._get:
-            r = self.get(k)
-        if r == 0:
-            if len(default) > 0:
-                return default[0]
-            raise AttributeError(k)
-        return r
-    '''
 
     def __getattribute__(self, k, *default):
         try:
@@ -811,11 +800,9 @@ class Struct(TypedStorage):
             return superattr
         except AttributeError:
             pass
-        #if  superattr != None:
-        #    return superattr
 
         r = 0
-        # the method can be called before setup, e.g. by deep_copy for _value_type, so check
+        # the method may be called before setup so check
         if self._get:
             r = self.get(k)
         if r == 0:
@@ -823,7 +810,6 @@ class Struct(TypedStorage):
                 return default[0]
             raise AttributeError(k)
         return r
-
 
     def _ckey(self, idx):
         assert isinstance(idx, int)
@@ -832,11 +818,7 @@ class Struct(TypedStorage):
     def __setattr__(self, k, v):
         assert isinstance(k, bytes)
         assert bytes(k) != bytes(0)
-        #if hasattr(super(Struct, self), k):
-        #if k in dir(TypedStorage):
-        #if getattr(super(Struct, self), k, None):
-        #if super(Struct, self).__getattr__(k):
-        #superattr = object.__getattribute__(self, k)
+
         if k in dir(self):
             # TODO: think of a protection for the injection hack here
             return super(Struct, self).__setattr__(k, v)
@@ -846,15 +828,12 @@ class Struct(TypedStorage):
             self.set(b'__len__', i + 1, value_type='uint32')
         self.set(k, v)
 
-    def slots(self):
-        return [(k, ts) for k, ts in vars(self).iteritems()
-                if isinstance(ts, TypedStorage)]
-
     def setup(self, prefix, getter, setter):
         assert isinstance(prefix, bytes)
         super(Struct,self).setup(prefix,getter,setter)
         for k, ts in self._nested_types.iteritems():
             ts.setup(self._key(k), getter, setter)
+
 
 class TypedStorageContract(NativeContractBase):
 
