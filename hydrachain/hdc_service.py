@@ -259,7 +259,7 @@ class ChainService(eth_ChainService):
         assert isinstance(blk.header, HDCBlockHeader)
         log.debug('trying to acquire transaction lock')
         self.add_transaction_lock.acquire()
-        success = self.chain.add_block(blk,  forward_pending_transactions=True)
+        success = self.chain.add_block(blk, forward_pending_transactions=True)
         self.add_transaction_lock.release()
         log.debug('transaction lock release')
         log.info('new head', head=self.chain.head)

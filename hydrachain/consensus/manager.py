@@ -115,7 +115,7 @@ class ConsensusManager(object):
 
         # add initial lockset
         head_proposal = self.load_proposal(self.head.hash)
-        #assert head_proposal
+        # assert head_proposal
         if head_proposal:
             assert head_proposal.blockhash == self.head.hash
             for v in head_proposal.signing_lockset:
@@ -192,7 +192,7 @@ class ConsensusManager(object):
         # if self.coinbase != 0: return
         t = int(self.chainservice.now)
         c = lambda x: cstr(self.coinbase, x)
-        msg = ' '.join([str(t), c(repr(self)),  tag, (' %r' % kargs if kargs else '')])
+        msg = ' '.join([str(t), c(repr(self)), tag, (' %r' % kargs if kargs else '')])
         log.debug(msg)
 
     @property

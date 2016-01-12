@@ -380,7 +380,7 @@ def test_nested_typed_storage():
             with pytest.raises(NotImplementedError):
                 assert len(ctx.a) == 0
             assert len(l) == 0
-    
+
             ctx.a[key][idx] = 33
             assert l[idx] == 33
             assert len(ctx.a[key]) == 1
@@ -391,7 +391,6 @@ def test_nested_typed_storage():
             assert ctx.a[key][idx] == 66
             ctx.a[key][idx + 1] = 67
             assert len(l) == 2
-
 
             # second key
 
@@ -428,10 +427,7 @@ def test_nested_typed_storage():
             ctx.c[2]['test2'] = 9
             assert len(ctx.c) == 4
 
-
-
             # test IterableDict
-
 
             ctx.f['A'] = 1
             assert len(ctx.f) == 1
@@ -452,7 +448,6 @@ def test_nested_typed_storage():
                 for idx in range(3):
                     ctx.e[k][idx] = 42 * (idx + 1)
 
-
             assert set(ctx.e.keys()) == set(['A', 'B', 'C'])
             assert len(ctx.e) == 3
 
@@ -461,7 +456,6 @@ def test_nested_typed_storage():
             for v in ctx.e.values():
                 assert len(v) == 3
                 assert list(iter(v)) == [42 * (idx + 1) for idx in range(3)]
-
 
             return 1, 1, []
 

@@ -148,7 +148,7 @@ def runmultiple(ctx, num_validators, seed):
               type=int, default=0, help='the node_num')
 @click.option('seed', '--seed', '-s', multiple=False,
               type=int, default=42, help='the seed')
-@click.option('--nodial/--dial',  default=False, help='do not dial nodes')
+@click.option('--nodial/--dial', default=False, help='do not dial nodes')
 @click.pass_context
 def runlocal(ctx, num_validators, node_num, seed, nodial):
     if not 0 <= node_num < num_validators:

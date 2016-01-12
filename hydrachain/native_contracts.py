@@ -727,7 +727,6 @@ class Dict(List):
         raise NotImplementedError('no len of dict available, use IterableDict')
 
 
-
 class IterableDict(Dict):
 
     "Note, don't use this for a high number of keys, because it does not clean them up on deletion"
@@ -774,6 +773,7 @@ class IterableDict(Dict):
     def __len__(self):
         return sum(1 for k in self.keys())
 
+
 class TypedStorageContract(NativeContractBase):
 
     """
@@ -813,7 +813,7 @@ class TypedStorageContract(NativeContractBase):
                 try:
                     delattr(self.__class__, k)
                 except AttributeError as e:
-                    pass # from parent class
+                    pass  # from parent class
 
         # create members (on each invocation!)
         for k, ts in [(k, ts) for k, ts in slots() if k.startswith('_')]:

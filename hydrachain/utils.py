@@ -1,6 +1,7 @@
 from Crypto.Hash import keccak
 sha3_256 = lambda x: keccak.new(digest_bits=256, data=x)
 
+
 def sha3(seed):
     return sha3_256(bytes(seed)).digest()
 
@@ -18,11 +19,14 @@ def DEBUG(*args, **kargs):
 colors = ['\033[9%dm' % i for i in range(0, 7)]
 colors += ['\033[4%dm' % i for i in range(1, 8)]
 
+
 def cstr(num, txt):
     return '%s%s%s' % (colors[num % len(colors)], txt, ENDC)
 
+
 def cprint(num, txt):
     print cstr(num, txt)
+
 
 def phx(x):
     return x.encode('hex')[:8]
