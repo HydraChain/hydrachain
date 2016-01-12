@@ -48,7 +48,7 @@ def test_basics():
 
 def test_status():
     peer, proto, chain, cb_data, cb = setup()
-    genesis = head = chain.blocks[-1]
+    genesis = chain.blocks[-1]
     ls = LockSet(1)
 
     # test status
@@ -87,7 +87,7 @@ def create_proposal(blk):
 
 def test_blocks():
     peer, proto, chain, cb_data, cb = setup()
-    gls = genesis_signing_lockset(chain.blocks[0], privkeys[0])
+    genesis_signing_lockset(chain.blocks[0], privkeys[0])
 
     # test blocks
     chain.mine(n=2)
@@ -124,7 +124,6 @@ def test_blockproposal():
 def test_votinginstruction():
     peer, proto, chain, cb_data, cb = setup()
     height = 1
-    round = 0
     bh = '1' * 32
     round_lockset = LockSet(len(validators))
     for i, privkey in enumerate(privkeys):
@@ -194,23 +193,3 @@ def test_vote():
     _p, data = cb_data.pop()
     assert data == payload
     assert isinstance(data, VoteNil)
-
-
-def _nono():
-    # newblock
-    approximate_difficulty = chain.blocks[-1].difficulty * 3
-    proto.send_newblock(block=chain.blocks[-1], chain_difficulty=approximate_difficulty)
-    packet = peer.packets.pop()
-    proto.receive_newblock_callbacks.append(cb)
-    proto._receive_newblock(packet)
-
-    _p, _d = cb_data.pop()
-    assert 'block' in _d
-    assert 'chain_difficulty' in _d
-    assert _d['chain_difficulty'] == approximate_difficulty
-    assert _d['block'].header == chain.blocks[-1].header
-    assert isinstance(_d['block'].transaction_list, list)
-    assert isinstance(_d['block'].uncles, list)
-    # assert that transactions and uncles have not been decoded
-    assert len(_d['block'].transaction_list) == 0
-    assert len(_d['block'].uncles) == 0

@@ -1,14 +1,11 @@
 import pytest
-import os
 from ethereum.db import EphemDB
-from pyethapp import leveldb_service
 from pyethapp.accounts import Account, AccountsService
 from ethereum import slogging
 from ethereum import utils
-from ethereum import config as eth_config
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
-from hydrachain.consensus.base import Block, BlockProposal, VoteBlock, VoteNil, TransientBlock
+from hydrachain.consensus.base import Block, BlockProposal, TransientBlock
 from hydrachain.consensus.base import InvalidProposalError, LockSet, Ready
 import ethereum.keys
 import rlp

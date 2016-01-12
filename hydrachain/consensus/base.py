@@ -138,7 +138,8 @@ class Vote(Signed):
             self.__class__ = VoteNil
 
     def __repr__(self):
-        return '<%s(S:%s BH:%s)>' % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+        return '<%s(S:%s BH:%s)>' % (self.__class__.__name__,
+                                     phx(self.sender), phx(self.blockhash))
 
     @property
     def hr(self):

@@ -147,8 +147,8 @@ def test_nac_tester():
     assert 26 == nc.tester_call_method(state, sender, SampleNAC.bfunc, 13)
 
     # FIXME THIS IS STILL BROKEN
-    #assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc)
-    #assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc2)
+    # assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc)
+    # assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc2)
 
     assert 4, 4 == nc.tester_call_method(state, sender, SampleNAC.cfunc, 4)
     assert [4] == nc.tester_call_method(state, sender, SampleNAC.ccfunc, 4)
@@ -164,7 +164,7 @@ def test_nac_tester():
     else:
         assert False, 'must fail'
     try:
-        nc.tester_call_method(state, sender, SampleNAC.afunc, 2**15, 2)
+        nc.tester_call_method(state, sender, SampleNAC.afunc, 2 ** 15, 2)
     except tester.TransactionFailed:
         pass
     else:
@@ -228,7 +228,7 @@ def test_nac_instances():
     nc.registry.unregister(SampleNAC)
 
 
-## Events #########################
+# Events #########################
 
 class Shout(nc.ABIEvent):
     args = [dict(name='a', type='uint16', indexed=True),
@@ -256,7 +256,7 @@ def test_events():
     c0.afunc(1, 2)
 
 
-## json abi ##############################
+# json abi ##############################
 
 def test_jsonabi():
     print EventNAC.json_abi()
@@ -327,25 +327,25 @@ def test_typed_storage():
 
             N = 10
             for i in range(1, N + 1):
-                v = i**2
+                v = i ** 2
                 k = bytes(i)
                 ctx.d[k] = v
                 assert ctx.d[k] == v
                 assert len(list(ctx.d.keys())) == i
                 assert list(ctx.d.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.d.values()) == [j**2 for j in range(1, i + 1)]
+                assert list(ctx.d.values()) == [j ** 2 for j in range(1, i + 1)]
 
             # iterable dict with strings
             N = 10
             for i in range(1, N + 1):
-                v = str(i**2)
+                v = str(i ** 2)
                 k = bytes(i)
                 ctx.e[k] = v
                 # log.DEV('kv', k=k, v=v)
                 assert ctx.e[k] == v, ctx.e[k]
                 assert len(list(ctx.e.keys())) == i
                 assert list(ctx.e.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.e.values()) == [str(j**2) for j in range(1, i + 1)]
+                assert list(ctx.e.values()) == [str(j ** 2) for j in range(1, i + 1)]
 
             print list(ctx.e.keys())
             print list(ctx.e.values())
@@ -355,7 +355,7 @@ def test_typed_storage():
 
     nc.registry.register(TestTSC)
     s = tester.state()
-    r = s._send(tester.k0, TestTSC.address, 0)
+    s._send(tester.k0, TestTSC.address, 0)
     nc.registry.unregister(TestTSC)
 
 
@@ -461,7 +461,7 @@ def test_nested_typed_storage():
 
     nc.registry.register(TestTSC)
     s = tester.state()
-    r = s._send(tester.k0, TestTSC.address, 0)
+    s._send(tester.k0, TestTSC.address, 0)
     nc.registry.unregister(TestTSC)
 
 
@@ -554,7 +554,7 @@ def test_owned():
             ctx.assert_owner()
             return 1
 
-    assert TestTSC.protected.is_constant == True
+    assert TestTSC.protected.is_constant is True
 
     state = tester.state()
     nc.registry.register(TestTSC)

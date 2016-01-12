@@ -5,24 +5,20 @@ import rlp
 from rlp.utils import encode_hex
 from ethereum import processblock
 from ethereum.slogging import get_logger
-from ethereum.processblock import validate_transaction
-from ethereum.exceptions import InvalidTransaction
 from ethereum.chain import Chain
 from ethereum.refcount_db import RefcountDB
 from ethereum.blocks import Block, VerificationFailed
 from ethereum.transactions import Transaction
 from devp2p.service import WiredService
-from devp2p.protocol import BaseProtocol
 from ethereum import config as ethereum_config
 import gevent
 import gevent.lock
-import statistics
 from collections import deque
 from gevent.queue import Queue
 from pyethapp.eth_service import ChainService as eth_ChainService
 from .consensus.protocol import HDCProtocol, HDCProtocolError
-from .consensus.base import Signed, VotingInstruction, BlockProposal, Proposal, TransientBlock
-from .consensus.base import Vote, VoteBlock, VoteNil, HDCBlockHeader, LockSet, Ready
+from .consensus.base import Signed, VotingInstruction, BlockProposal
+from .consensus.base import VoteBlock, VoteNil, HDCBlockHeader, LockSet, Ready
 from .consensus.utils import phx
 from .consensus.manager import ConsensusManager
 from .consensus.contract import ConsensusContract
@@ -512,7 +508,7 @@ class ChainService(eth_ChainService):
         fmap = {BlockProposal: 'newblockproposal', VoteBlock: 'vote', VoteNil: 'vote',
                 VotingInstruction: 'votinginstruction', Transaction: 'transactions',
                 Ready: 'ready'}
-        if self.broadcast_filter.update(obj.hash) == False:
+        if self.broadcast_filter.update(obj.hash) is False:
             log.debug('already broadcasted', obj=obj)
             return
         if isinstance(obj, BlockProposal):

@@ -3,7 +3,7 @@ import sys
 import rlp
 from .base import LockSet, Vote, VoteBlock, VoteNil, Signed, Ready
 from .base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
-from .base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
+from .base import Block, Proposal, HDCBlockHeader, InvalidProposalError
 from .protocol import HDCProtocol
 from .utils import cstr, phx
 from .synchronizer import Synchronizer
@@ -408,7 +408,6 @@ class ConsensusManager(object):
         return self.chain.head_candidate.num_transactions() > 0
 
     def process(self):
-        h = self.height
         r = self._process()
         return r
 
