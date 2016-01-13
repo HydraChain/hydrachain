@@ -2,6 +2,7 @@ from ethereum import tester
 from ethereum import utils
 from hydrachain import native_contracts as nc
 from ethereum import abi
+from ethereum.utils import zpad
 import pytest
 import logging
 import random, string
@@ -397,6 +398,7 @@ def test_typed_storage_contract():
 
 
 def _key(self, k):
+    k = zpad(k, 32)
     return b'%s:%s' % (self._prefix, k)
 
 
@@ -415,8 +417,12 @@ def test_nested_typed_storage_list_in_dict():
         td[k]=v
 
     a = nc.Dict(nc.List('uint16'))
+    b = nc.List('uint32')
 
     a.setup(b'a',_get,_set)
+    b.setup(b'b',_get,_set)
+
+    b.append(10)
 
     # list nested in dict
     assert isinstance(a, nc.Dict)
@@ -570,7 +576,7 @@ def test_nested_typed_storage_iterable_dict():
     k = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x17q'
     v = 2146209080
     d[k] = v
-    #assert len(d) == 1
+    assert len(d) == 1
 
 
     f['A'] = 1
@@ -715,7 +721,7 @@ def test_nested_typed_storage_struct():
     #j.v.y = 'theaddr'
     #assert j.v.y == 'theaddr'
 
-    #assert 'j:v:y' in td   # TODO: define __getattr__ and __setattr__ in the struct to make this work
+    #assert 'j:v:y' in td   # TODO: fix the nested Scalar bug to make this work
 
 def test_nativeabicontract_with_storage():
 

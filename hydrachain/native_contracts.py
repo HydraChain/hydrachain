@@ -780,7 +780,7 @@ class IterableDict(Dict):
         keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
         items = ((k, self.get(k)) for k in keys)
         valid = list((k, v) for k, v in items if v)
-        # log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
+        log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
         return valid
 
     __iter__ = keys
@@ -869,7 +869,7 @@ class TypedStorageContract(NativeContractBase):
         # move TypedStorage members to _protected (so we can reinitialize them later).
         def slots():
             return [(k, getattr(self.__class__, k)) for k in dir(self.__class__)
-                        if isinstance(getattr(self.__class__, k), TypedStorage)]
+                    if isinstance(getattr(self.__class__, k), TypedStorage)]
 
         # log.DEV('preparing storage', klass=self.__class__, slots=slots())
         for k, ts in slots():
@@ -877,8 +877,8 @@ class TypedStorageContract(NativeContractBase):
                 setattr(self.__class__, '_' + k, ts)
                 try:
                     delattr(self.__class__, k)
-                except AttributeError as e:
-                    pass # from parent class
+                except AttributeError:
+                    pass  # from parent class
 
         # create members (on each invocation!)
         for k, ts in [(k, ts) for k, ts in slots() if k.startswith('_')]:
