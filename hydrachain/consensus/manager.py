@@ -385,7 +385,6 @@ class ConsensusManager(object):
         assert isinstance(ar, RoundManager)
         if self.active_round == ar:
             self.log('on alarm, matched', ts=self.chainservice.now)
-            self.active_round.timeout_time = None  # cancel alarm
             if not self.is_ready:
                 # defer alarm if not ready
                 self.log('not ready defering alarm', ts=self.chainservice.now)
