@@ -2,6 +2,9 @@ language: python
 sudo: false
 env:
   - TOXENV=py27
+  - DOCKER_EMAIL=docker@hydrachain.com
+  - DOCKER_USERNAME=hydrachain
+  - secure: "V1tvKjhqsKqB1I5mf76v2PjnZtsu+tjhWxCw4mbwOERTj1EI3wKm4vijWnaWHoKx6VLcIM7vzGffKH7fhtKG8ChWP3H5QaaQMPYJ2GPYqTOZyPnSQ/ljl5PxMOPssQuqW1d8llvB5AYMrP5aVBBtysT5d+412f0Fw27KhBDzXdy5M+5/yHiOy1LD1Gb5fx5gvao3ljytDhpTO5KcJL2przQQQGYyRCyEeWNyTi04b/Xk0G9uzvVQOIIdA4BV2JDKhzStpWCkxt+HjP0znjJQprU7ieDeapGzvj0eNoRs4w05USbc2ChQh/+i2K+ttOdO/Fku5uFBfah1yMeEWsD3LgVB6kdgK4TK7rq6CU+kcHzqYZjWtbCOKmL0kTDZYgemNyeTh4ENSmWNBZ3KJRzWlXuwzRYfygLYXMaMrOZbPQj6J65VlLpFwSxbczToEF21PLu5r8cIV1x9aoDC2jJ86anCkmPa95SYlj9g8eZdtmIPslbY5bpnjt0+tCSRsCIGu28jsQdnvwLT8ZlIyLLFR4uGLKJb8lh6Pq6PuhNMIs5fp4k+T5KPhhJIpkLvZWFIm6L5BK/w0GiDXrA6tPEo7knI8fQpOmg5TcrL3yTieuSpn/zUAwlgWgImP44pTWDT370JD3E+6ZnHEbKYSZM/cTcEPpBe703sumPpcKT/mPY="
 addons:
   apt:
     packages:
@@ -10,7 +13,11 @@ install:
   - pip install tox
   - pip install coveralls
 script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_syncing.py
-after_success: coveralls
+after_success: 
+  - coveralls
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop} .
+  - docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop}
 deploy:
   provider: pypi
   user: ethereum_pypi_automated
@@ -21,3 +28,6 @@ deploy:
     repo: HydraChain/hydrachain
     branch: develop
   distributions: "sdist bdist_wheel"
+after_deploy:
+  - docker tag hydrachain/hydrachain:$TRAVIS_TAG hydrachain/hydrachain:latest
+  - docker push hydrachain/hydrachain:latest
