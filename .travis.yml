@@ -1,5 +1,7 @@
 language: python
-sudo: false
+sudo: required
+services:
+  - docker
 env:
   global:
   - DOCKER_EMAIL=docker@hydrachain.com
