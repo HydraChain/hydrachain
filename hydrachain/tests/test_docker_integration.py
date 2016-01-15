@@ -214,10 +214,8 @@ class TestDockerSetup(object):
 
     @pytest.mark.parametrize(('block_no', 'op', 'timeout'),
                              ((1, operator.ge, 120),
-                              (20, operator.ge, 25),
-                              (40, operator.ge, 25),
-                              (80, operator.ge, 50),
-                              (100, operator.eq, 25),))
+                              (10, operator.eq, 25),
+                              ))
     def test_all_nodes_reach_block_no(self, docker_harness, block_no, op, timeout):
         targets = docker_harness.rpc_ports
         assert wait_callback_or_timeout(
