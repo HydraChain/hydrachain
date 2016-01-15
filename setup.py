@@ -49,7 +49,7 @@ version = '0.1.10'
 setup(
     name='hydrachain',
     version=version,
-    description="",
+    description="Permissioned Distributed Ledger based on Ethereum",
     long_description=readme + '\n\n' + history,
     author="HeikoHeiko",
     author_email='heiko@brainbot.com',
