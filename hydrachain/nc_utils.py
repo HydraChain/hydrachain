@@ -39,6 +39,13 @@ def transact(app, sender, to_, value=0, data=''):
 
 
 def wait_next_block_factory(app, timeout=None):
+    """Creates a `wait_next_block` function, that
+    will wait `timeout` seconds (`None` = indefinitely)
+    for a new block to appear.
+
+    :param app: the app-instance the function should work for
+    :param timeout: timeout in seconds
+    """
 
     chain = app.services.chain
 
