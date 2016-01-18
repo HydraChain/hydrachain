@@ -73,6 +73,7 @@ class Registry(object):
         return address.startswith(self.native_contract_instance_address_prefix)
 
     def address_to_native_contract_class(self, address):
+        "returns class._on_msg_unsafe, use x.im_self to get class"
         assert isinstance(address, bytes) and len(address) == 20
         assert self.is_instance_address(address)
         nca = self.native_contract_address_prefix + address[-4:]
@@ -457,6 +458,10 @@ class ABIEvent(object):
         return [a['type'] for a in cls.args]
 
     @classmethod
+    def arg_names(cls):
+        return [a['name'] for a in cls.args]
+
+    @classmethod
     def event_id(cls):
         return abi.event_id(cls.__name__, cls.arg_types())
 
@@ -492,13 +497,15 @@ class ABIEvent(object):
             return
         if address and address != log_.address:
             return
-        o = {}
+        # o = dict(address=log_.address)
+        o = dict()
         for i, t in enumerate(log_.topics[1:]):
             name = cls.args[i]['name']
             if cls.arg_types()[i] in ('string', 'bytes'):
-                assert t < 2**256  # FIXME
+                assert t < 2**256, "error with {}, user bytes32".format(cls.args[i])
                 d = encode_int(t)
             else:
+                assert t < 2**256
                 d = zpad(encode_int(t), 32)
             data = abi.decode_abi([cls.arg_types()[i]], d)[0]
             o[name] = data
@@ -812,7 +819,7 @@ class TypedStorageContract(NativeContractBase):
                 setattr(self.__class__, '_' + k, ts)
                 try:
                     delattr(self.__class__, k)
-                except AttributeError:
+                except AttributeError as e:
                     pass  # from parent class
 
         # create members (on each invocation!)
