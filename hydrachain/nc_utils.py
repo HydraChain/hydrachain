@@ -38,7 +38,7 @@ def transact(app, sender, to_, value=0, data=''):
     return tx
 
 
-def wait_next_block_factory(app):
+def wait_next_block_factory(app, timeout=None):
 
     chain = app.services.chain
 
@@ -53,10 +53,12 @@ def wait_next_block_factory(app):
     def wait_next_block():
         bn = chain.chain.head.number
         chain.consensus_manager.log('waiting for new block', block=bn)
-        new_block_evt.wait()
+        new_block_evt.wait(timeout)
         new_block_evt.clear()
-        bn = chain.chain.head.number
-        chain.consensus_manager.log('new block event', block=bn)
+        if chain.chain.head.number > bn:
+            chain.consensus_manager.log('new block event', block=chain.chain.head.number)
+        elif chain.chain.head.number == bn:
+            chain.consensus_manager.log('wait_next_block timed out', block=bn)
 
     return wait_next_block
 
