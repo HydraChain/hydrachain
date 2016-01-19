@@ -58,6 +58,8 @@ setup(
         'hydrachain',
         'hydrachain.consensus',
         'hydrachain.examples',
+        'hydrachain.examples.native',
+        'hydrachain.examples.native.coin',
     ],
     include_package_data=True,
     license="MIT",
