@@ -19,9 +19,9 @@ install:
 script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_syncing.py
 after_success: 
   - coveralls
-  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-  - docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop} .
-  - docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop}
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" || true
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop} . || true
+  - [ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop} || true
 deploy:
   provider: pypi
   user: ethereum_pypi_automated
