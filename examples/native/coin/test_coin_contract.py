@@ -1,67 +1,122 @@
 from ethereum import tester
-from hydrachain import native_contracts as nc
-import logging
-logging.NOTSET = logging.ERROR
+import hydrachain.native_contracts as nc
+from coin_contract import Coin, Transfer, Approval
+import ethereum.slogging as slogging
+log = slogging.get_logger('sim.config')
+nc.registry.register(Coin)
 
-import coin_contract as coinc
+
+def test_coin_instance():
+    state = tester.state()
+    creator_address = tester.a0
+    creator_key = tester.k0
+
+    # Create proxy
+    to_ = nc.CreateNativeContractInstance.address
+    call_data = Coin.address[-4:]
+    EUR_address = state.send(creator_key, to_, value=0, evmdata=call_data)
+    coin_as_creator = nc.tester_nac(state, creator_key, EUR_address)
+    # Initalize coin with a fixed quantity of coins.
+    coin_total = 1000000
+    coin_as_creator.init(coin_total)
+    assert coin_as_creator.balanceOf(creator_address) == coin_total
+    nc.registry.unregister(Coin)
 
 
 def test_coin_template():
+    """
+    Tests;
+        Coin initialization as Creator,
+        Creator sends Coins to Alice,
+        Alice sends Coins to Bob,
+        Bob approves Creator to spend Coins on his behalf,
+        Creator allocates these Coins from Bob to Alice,
+        Testing of non-standardized functions of the Coin contract.
+    Events;
+        Checking logs from Transfer and Approval Events
+    """
+
+    # Register Contract Coin
+    nc.registry.register(Coin)
+
+    # Initialize Participants and Coin contract
     state = tester.state()
     logs = []
-    admin_address = tester.a0
-    admin_key = tester.k0
-    alice_key = tester.k1
+    creator_address = tester.a0
+    creator_key = tester.k0
     alice_address = tester.a1
+    alice_key = tester.k1
     bob_address = tester.a2
-
-    # create proxy
-    nc.listen_logs(state, coinc.CoinSent, callback=lambda e: logs.append(e))
-    coin_as_creator = nc.tester_nac(state, admin_key, coinc.Coin.address)
-
-    # initalize coin with a fixed quantity of coins.
-    coin_as_creator.init()
+    bob_key = tester.k2
+    # Create proxy
+    nc.listen_logs(state, Transfer, callback=lambda e: logs.append(e))
+    nc.listen_logs(state, Approval, callback=lambda e: logs.append(e))
+    coin_as_creator = nc.tester_nac(state, creator_key, Coin.address)
+    # Initalize coin with a fixed quantity of coins.
     coin_total = 1000000
-    assert coin_as_creator.coinBalance() == coin_total
+    coin_as_creator.init(coin_total)
+    assert coin_as_creator.balanceOf(creator_address) == coin_total
 
-    # creator sends shares to alice
-    sent_amount_alice = 700000
-    coin_as_creator.sendCoin(sent_amount_alice, alice_address)
-    assert coin_as_creator.coinBalanceOf(admin_address) == coin_total - sent_amount_alice
-    assert coin_as_creator.coinBalanceOf(alice_address) == sent_amount_alice
-
-    # check logs data of CoinSent Event
+    # Creator transfers Coins to Alice
+    send_amount_alice = 700000
+    coin_as_creator.transfer(alice_address, send_amount_alice)
+    assert coin_as_creator.balanceOf(creator_address) == coin_total - send_amount_alice
+    assert coin_as_creator.balanceOf(alice_address) == send_amount_alice
+    # Check logs data of Transfer Event
     assert len(logs) == 1
     l = logs[0]
-    assert l['from'] == admin_address
-    assert l['value'] == sent_amount_alice
+    assert l['event_type'] == 'Transfer'
+    assert l['from'] == creator_address
     assert l['to'] == alice_address
+    # Build transaction Log arguments and check sent amount
+    assert l['value'] == send_amount_alice
 
-    # alice transfers something to bob
-    sent_amount_bob = 400000
-    # create proxy for alice
-    coin_as_alice = nc.tester_nac(state, alice_key, coinc.Coin.address)
-    coin_as_alice.sendCoin(sent_amount_bob, bob_address)
+    # Alice transfers Coins to Bob
+    send_amount_bob = 400000
+    # Create proxy for Alice
+    coin_as_alice = nc.tester_nac(state, alice_key, Coin.address)
+    coin_as_alice.transfer(bob_address, send_amount_bob)
+    # Test balances of Creator, Alice and Bob
+    creator_balance = coin_total - send_amount_alice
+    alice_balance = send_amount_alice - send_amount_bob
+    bob_balance = send_amount_bob
+    assert coin_as_alice.balanceOf(creator_address) == creator_balance
+    assert coin_as_alice.balanceOf(alice_address) == alice_balance
+    assert coin_as_alice.balanceOf(bob_address) == bob_balance
 
-    # test balances
-    assert coin_as_alice.coinBalanceOf(admin_address) == coin_total - sent_amount_alice
-    assert coin_as_alice.coinBalance() == sent_amount_alice - sent_amount_bob
-    assert coin_as_alice.coinBalanceOf(bob_address) == sent_amount_bob
+    # Create proxy for Bob
+    coin_as_bob = nc.tester_nac(state, bob_key, Coin.address)
+    approved_amount_bob = 100000
+    assert coin_as_bob.allowance(creator_address) == 0
+    # Bob approves Creator to spend Coins
+    assert coin_as_bob.allowance(creator_address) == 0
+    coin_as_bob.approve(creator_address, approved_amount_bob)
+    assert coin_as_bob.allowance(creator_address) == approved_amount_bob
 
-    # now we should have three coin holders
-    assert 3 == coin_as_alice.numHolders()
+    # Test transferFrom function, i.e. direct debit.
+    coin_as_creator.transferFrom(bob_address, alice_address, approved_amount_bob)
+    # Test balances
+    alice_balance += approved_amount_bob
+    bob_balance -= approved_amount_bob
+    assert coin_as_alice.balanceOf(creator_address) == creator_balance
+    assert coin_as_alice.balanceOf(alice_address) == alice_balance
+    assert coin_as_alice.balanceOf(bob_address) == bob_balance
+    # Check logs data of Transfer Event
+    assert len(logs) == 4
+    l = logs[-1]
+    assert l['event_type'] == 'Transfer'
+    assert l['from'] == bob_address
+    assert l['to'] == alice_address
+    # Build transaction Log arguments and check sent amount
+    assert l['value'] == approved_amount_bob
 
-    # alice tries to spend more than she has
-    alice_balance = sent_amount_alice - sent_amount_bob
-    bob_balance = sent_amount_bob
-
-    r = coin_as_alice.sendCoin(alice_balance + 1, bob_address)
-    assert r == coinc.INSUFFICIENTFUNDS
-    assert coin_as_alice.coinBalance() == alice_balance
-    assert coin_as_alice.coinBalanceOf(bob_address) == sent_amount_bob
-
-    r = coin_as_creator.getHolders()
-    assert r == [admin_address, alice_address, bob_address]
+    # Testing account information
+    # Now we should have three Coin accounts
+    assert 3 == coin_as_alice.num_accounts()
+    r = coin_as_creator.get_creator()
+    assert r == creator_address
+    r = coin_as_creator.get_accounts()
+    assert r == [creator_address, alice_address, bob_address]
 
     print logs
     while logs and logs.pop():
