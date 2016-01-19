@@ -46,11 +46,10 @@ class Coin(nc.NativeContract):
         ctx.supply = _supply
         return OK
 
-    """
-    Standardized Contract API:
-    function transfer(address _to, uint256 _value) returns (bool _success)
-    """
     def transfer(ctx, _to='address', _value='uint256', returns=STATUS):
+        """ Standardized Contract API:
+        function transfer(address _to, uint256 _value) returns (bool _success)
+        """
         log.DEV('In Coin.transfer')
         if ctx.accounts[ctx.msg_sender] >= _value:
             ctx.accounts[ctx.msg_sender] -= _value
@@ -60,11 +59,10 @@ class Coin(nc.NativeContract):
         else:
             return INSUFFICIENTFUNDS
 
-    """
-    Standardized Contract API:
-    function transferFrom(address _from, address _to, uint256 _value) returns (bool success)
-    """
     def transferFrom(ctx, _from='address', _to='address', _value='uint256', returns=STATUS):
+        """ Standardized Contract API:
+        function transferFrom(address _from, address _to, uint256 _value) returns (bool success)
+        """
         auth = ctx.allowances[_from][ctx.msg_sender]
         if ctx.accounts[_from] >= _value and auth >= _value:
             ctx.allowances[_from][ctx.msg_sender] -= _value
@@ -75,38 +73,33 @@ class Coin(nc.NativeContract):
         else:
             return INSUFFICIENTFUNDS
 
-    """
-    Standardized Contract API:
-    function totalSupply() constant returns (uint256 supply)
-    """
     @nc.constant
     def totalSupply(ctx, returns='uint256'):
+        """ Standardized Contract API:
+        function totalSupply() constant returns (uint256 supply)
+        """
         return ctx.supply
 
-    """
-    Standardized Contract API:
-    function balanceOf(address _address) constant returns (uint256 balance)
-    """
     @nc.constant
     def balanceOf(ctx, _address='address', returns='uint256'):
+        """ Standardized Contract API:
+        function balanceOf(address _address) constant returns (uint256 balance)
+        """
         return ctx.accounts[_address]
 
-    """
-    Standardized Contract API:
-    function approve(address _spender, uint256 _value) returns (bool success)
-    """
     def approve(ctx, _spender='address', _value='uint256', returns=STATUS):
-        # approved[msg.sender].withdrawers[_addr]
+        """ Standardized Contract API:
+        function approve(address _spender, uint256 _value) returns (bool success)
+        """
         ctx.allowances[ctx.msg_sender][_spender] += _value
         ctx.Approval(ctx.msg_sender, _spender, _value)
         return OK
 
-    """
-    Standardized Contract API:
-    function allowance(address _owner, address _spender) constant returns (uint256 remaining)
-    """
     @nc.constant
     def allowance(ctx, _spender='address', returns='uint256'):
+        """ Standardized Contract API:
+        function allowance(address _owner, address _spender) constant returns (uint256 remaining)
+        """
         return ctx.allowances[ctx.msg_sender][_spender]
 
     @nc.constant
