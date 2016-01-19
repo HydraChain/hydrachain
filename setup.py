@@ -56,7 +56,8 @@ setup(
     url='https://github.com/HydraChain/hydrachain',
     packages=[
         'hydrachain',
-        'hydrachain.consensus'
+        'hydrachain.consensus',
+        'hydrachain.examples',
     ],
     include_package_data=True,
     license="MIT",
