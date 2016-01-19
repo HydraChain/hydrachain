@@ -1,5 +1,5 @@
 from ethereum import tester
-from hydrachain import native_contracts as nc
+import hydrachain.native_contracts as nc
 from coin_contract import Coin, Transfer, Approval
 import ethereum.slogging as slogging
 log = slogging.get_logger('sim.config')
@@ -12,11 +12,9 @@ def test_coin_instance():
     creator_key = tester.k0
 
     # Create proxy
-
     to_ = nc.CreateNativeContractInstance.address
     call_data = Coin.address[-4:]
     EUR_address = state.send(creator_key, to_, value=0, evmdata=call_data)
-    # EUR_address = nc.registry.mk_instance_address(contracts.Coin, admin_address, tx.nonce)
     coin_as_creator = nc.tester_nac(state, creator_key, EUR_address)
     # Initalize coin with a fixed quantity of coins.
     coin_total = 1000000
