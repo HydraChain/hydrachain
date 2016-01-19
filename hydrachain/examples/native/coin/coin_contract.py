@@ -103,7 +103,7 @@ class Coin(nc.NativeContract):
         return ctx.allowances[ctx.msg_sender][_spender]
 
     @nc.constant
-    def allowanceFrom(ctx, _from='address',  _spender='address', returns='uint256'):
+    def allowanceFrom(ctx, _from='address', _spender='address', returns='uint256'):
         return ctx.allowances[_from][_spender]
 
     # Other Functions

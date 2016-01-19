@@ -40,6 +40,8 @@ import ethereum.vm as vm
 import ethereum.abi as abi
 from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endian
 from ethereum import slogging
+from ethereum.transactions import Transaction
+
 slogging.configure(config_string=':debug')
 log = slogging.get_logger('nc')
 
@@ -502,10 +504,10 @@ class ABIEvent(object):
         for i, t in enumerate(log_.topics[1:]):
             name = cls.args[i]['name']
             if cls.arg_types()[i] in ('string', 'bytes'):
-                assert t < 2**256, "error with {}, user bytes32".format(cls.args[i])
+                assert t < 2 ** 256, "error with {}, user bytes32".format(cls.args[i])
                 d = encode_int(t)
             else:
-                assert t < 2**256
+                assert t < 2 ** 256
                 d = zpad(encode_int(t), 32)
             data = abi.decode_abi([cls.arg_types()[i]], d)[0]
             o[name] = data
@@ -549,9 +551,6 @@ def tester_nac(state, sender, address, value=0):
         setattr(cproxy, m.__func__.func_name, mk_method(m))
 
     return cproxy()
-
-
-from ethereum.transactions import Transaction
 
 
 def test_call(block, sender, to, data='', gasprice=0, value=0):
@@ -819,7 +818,7 @@ class TypedStorageContract(NativeContractBase):
                 setattr(self.__class__, '_' + k, ts)
                 try:
                     delattr(self.__class__, k)
-                except AttributeError as e:
+                except AttributeError:
                     pass  # from parent class
 
         # create members (on each invocation!)
