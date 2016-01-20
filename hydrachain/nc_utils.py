@@ -4,8 +4,7 @@ import ethereum.slogging as slogging
 from ethereum import transactions
 from pyethapp.rpc_client import ABIContract
 from hydrachain import native_contracts as nc
-
-log = slogging.get_logger('contracts.utils')
+log = slogging.get_logger('nc.utils')
 
 STATUS = 'uint16'
 FORBIDDEN = 403

@@ -118,3 +118,19 @@ class Fungible(nc.NativeContract):
     @nc.constant
     def get_accounts(ctx, returns='address[]'):
         return list(ctx.accounts.keys())
+
+
+class Token(Fungible):
+    address = utils.int_to_addr(5001)
+
+
+class Coin(Fungible):
+    address = utils.int_to_addr(5002)
+
+
+class IOU(Fungible):
+    address = utils.int_to_addr(5003)
+
+
+class Currency(Fungible):
+    address = utils.int_to_addr(5004)

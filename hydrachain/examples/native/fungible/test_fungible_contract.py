@@ -2,7 +2,7 @@ from ethereum import tester
 import hydrachain.native_contracts as nc
 from fungible_contract import Fungible, Transfer, Approval
 import ethereum.slogging as slogging
-log = slogging.get_logger('sim.config')
+log = slogging.get_logger('test.fungible')
 nc.registry.register(Fungible)
 
 
