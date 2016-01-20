@@ -2,7 +2,7 @@ import ethereum.utils as utils
 import ethereum.slogging as slogging
 import hydrachain.native_contracts as nc
 from hydrachain.nc_utils import isaddress, STATUS, FORBIDDEN, OK, INSUFFICIENTFUNDS
-log = slogging.get_logger('contracts.coin')
+log = slogging.get_logger('contracts.fungible')
 
 
 class Transfer(nc.ABIEvent):
@@ -15,13 +15,13 @@ class Transfer(nc.ABIEvent):
 
 class Approval(nc.ABIEvent):
 
-    """Triggered when Coin.approved is called."""
+    """Triggered when Fungible.approved is called."""
     args = [dict(name='owner', type='address', indexed=True),
             dict(name='spender', type='address', indexed=True),
             dict(name='value', type='uint256', indexed=True)]
 
 
-class Coin(nc.NativeContract):
+class Fungible(nc.NativeContract):
 
     """
     based on
@@ -38,7 +38,7 @@ class Coin(nc.NativeContract):
     allowances = nc.Dict(nc.Dict('uint256'))
 
     def init(ctx, _supply='uint256', returns=STATUS):
-        log.DEV('In Coin.init')
+        log.DEV('In Fungible.init')
         if isaddress(ctx.owner):
             return FORBIDDEN
         ctx.owner = ctx.tx_origin
@@ -50,7 +50,7 @@ class Coin(nc.NativeContract):
         """ Standardized Contract API:
         function transfer(address _to, uint256 _value) returns (bool _success)
         """
-        log.DEV('In Coin.transfer')
+        log.DEV('In Fungible.transfer')
         if ctx.accounts[ctx.msg_sender] >= _value:
             ctx.accounts[ctx.msg_sender] -= _value
             ctx.accounts[_to] += _value
@@ -118,3 +118,19 @@ class Coin(nc.NativeContract):
     @nc.constant
     def get_accounts(ctx, returns='address[]'):
         return list(ctx.accounts.keys())
+
+
+class Token(Fungible):
+    address = utils.int_to_addr(5001)
+
+
+class Coin(Fungible):
+    address = utils.int_to_addr(5002)
+
+
+class IOU(Fungible):
+    address = utils.int_to_addr(5003)
+
+
+class Currency(Fungible):
+    address = utils.int_to_addr(5004)
