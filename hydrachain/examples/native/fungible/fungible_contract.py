@@ -128,9 +128,41 @@ class Coin(Fungible):
     address = utils.int_to_addr(5002)
 
 
-class IOU(Fungible):
+class Currency(Fungible):
     address = utils.int_to_addr(5003)
 
 
-class Currency(Fungible):
+class Issuance(nc.ABIEvent):
+
+    "Triggered when IOU.issue is called."
+    args = [dict(name='issuer', type='address', indexed=True),
+            dict(name='rtgs_hash', type='bytes32', indexed=True),
+            dict(name='amount', type='uint256', indexed=True)]
+
+
+class IOU(Fungible):
+    """
+    IOU fungible, can Issue its supply
+    """
+
     address = utils.int_to_addr(5004)
+    events = [Transfer, Approval, Issuance]
+    issued_amounts = nc.IterableDict('uint256')
+
+    def init(ctx, returns=STATUS):
+        log.DEV('In IOU.init')
+        return super(IOU, ctx).init(0)
+
+    def issue_funds(ctx, amount='uint256', rtgs_hash='bytes32', returns=STATUS):
+        "In the IOU fungible the supply is set by Issuer, who issue funds."
+        # allocate new issue as result of a new cash entry
+        ctx.accounts[ctx.msg_sender] += amount
+        ctx.issued_amounts[ctx.msg_sender] += amount
+        # Store hash(rtgs)
+        ctx.Issuance(ctx.msg_sender, rtgs_hash, amount)
+        return OK
+
+    # Other Functions
+    @nc.constant
+    def get_issued_amount(ctx, issuer='address', returns='uint256'):
+        return ctx.issued_amounts[issuer]
