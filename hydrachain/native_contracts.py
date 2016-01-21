@@ -838,40 +838,5 @@ class TypedStorageContract(NativeContractBase):
 
 # The NativeContract Class ###################
 
-
 class NativeContract(NativeABIContract, TypedStorageContract):
     pass
-
-
-"""
-gas counting and
-OOG exception
-
-call
-address.call
-
-    def init(): - executed upon contract creation, accepts no parameters
-    def shared(): - executed before running init and user functions
-    def code(): - executed before any user functions
-
-constant
-stop
-
-modifiers
-@nca.isowner
-@nca.constant
-"""
-
-
-# class AddressNAC(NativeABIContract):
-#     address = utils.int_to_addr(5000)
-
-#     def getit(ctx, returns='address[]'):
-#         print "GETIT CALLED"
-#         return ['\x00' * 20] * 3
-
-# registry.register(AddressNAC)
-
-# import json
-# print json.dumps(AddressNAC.json_abi(), indent=2)
-# print AddressNAC.address.encode('hex')
