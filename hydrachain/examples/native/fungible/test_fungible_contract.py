@@ -3,7 +3,6 @@ import hydrachain.native_contracts as nc
 from fungible_contract import Fungible, Transfer, Approval
 import ethereum.slogging as slogging
 log = slogging.get_logger('test.fungible')
-nc.registry.register(Fungible)
 
 
 def test_fungible_instance():
@@ -11,10 +10,10 @@ def test_fungible_instance():
     creator_address = tester.a0
     creator_key = tester.k0
 
+    nc.registry.register(Fungible)
+
     # Create proxy
-    to_ = nc.CreateNativeContractInstance.address
-    call_data = Fungible.address[-4:]
-    EUR_address = state.send(creator_key, to_, value=0, evmdata=call_data)
+    EUR_address = nc.tester_create_native_contract_instance(state, creator_key, Fungible)
     fungible_as_creator = nc.tester_nac(state, creator_key, EUR_address)
     # Initalize fungible with a fixed quantity of fungibles.
     fungible_total = 1000000
@@ -121,3 +120,5 @@ def test_fungible_template():
     print logs
     while logs and logs.pop():
         pass
+
+    nc.registry.unregister(Fungible)
