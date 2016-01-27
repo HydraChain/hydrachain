@@ -836,6 +836,7 @@ class TypedStorageContract(NativeContractBase):
                     return property(lambda s: skalar.get(), lambda s, v: skalar.set(v=v))
                 setattr(self.__class__, k, _mk_property(ts))
 
+
 # The NativeContract Class ###################
 
 class NativeContract(NativeABIContract, TypedStorageContract):

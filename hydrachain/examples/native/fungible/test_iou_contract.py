@@ -1,6 +1,6 @@
 from ethereum import tester
 import hydrachain.native_contracts as nc
-from fungible_contract import IOU, Transfer, Approval, Issuance
+from fungible_contract import IOU
 import ethereum.slogging as slogging
 log = slogging.get_logger('test.iou')
 
@@ -34,8 +34,8 @@ def test_iou_template():
     assert iou_as_issuer.balanceOf(issuer_address) == amount_issued
 
     iou_as_issuer.issue_funds(amount_issued, '')
-    assert iou_as_issuer.balanceOf(issuer_address) == 2*amount_issued
-    assert iou_as_issuer.get_issued_amount(issuer_address) == 2*amount_issued
+    assert iou_as_issuer.balanceOf(issuer_address) == 2 * amount_issued
+    assert iou_as_issuer.get_issued_amount(issuer_address) == 2 * amount_issued
 
     print logs
     while logs and logs.pop():
