@@ -768,7 +768,7 @@ class IterableDict(Dict):
 
     def items(self):
         _len = self.get(b'__len__', value_type='uint32')
-        keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
+        keys = set(self.get(self._ckey(i), value_type='bytes') for i in range(_len))
         items = ((k, self.get(k)) for k in keys)
         valid = list((k, v) for k, v in items if v)
         # log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
