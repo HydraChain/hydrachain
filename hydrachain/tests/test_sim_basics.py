@@ -2,7 +2,6 @@ from hydrachain.consensus.simulation import Network, assert_heightdistance
 from hydrachain.consensus.simulation import assert_maxrounds, assert_blocktime, log
 from hydrachain.consensus.manager import ConsensusManager
 from ethereum.transactions import Transaction
-import pytest
 import gevent
 
 

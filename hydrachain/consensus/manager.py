@@ -3,7 +3,7 @@ import sys
 import rlp
 from .base import LockSet, Vote, VoteBlock, VoteNil, Signed, Ready
 from .base import BlockProposal, VotingInstruction, DoubleVotingError, InvalidVoteError
-from .base import TransientBlock, Block, Proposal, HDCBlockHeader, InvalidProposalError
+from .base import Block, Proposal, HDCBlockHeader, InvalidProposalError
 from .protocol import HDCProtocol
 from .utils import cstr, phx
 from .synchronizer import Synchronizer
@@ -115,7 +115,7 @@ class ConsensusManager(object):
 
         # add initial lockset
         head_proposal = self.load_proposal(self.head.hash)
-        #assert head_proposal
+        # assert head_proposal
         if head_proposal:
             assert head_proposal.blockhash == self.head.hash
             for v in head_proposal.signing_lockset:
@@ -192,7 +192,7 @@ class ConsensusManager(object):
         # if self.coinbase != 0: return
         t = int(self.chainservice.now)
         c = lambda x: cstr(self.coinbase, x)
-        msg = ' '.join([str(t), c(repr(self)),  tag, (' %r' % kargs if kargs else '')])
+        msg = ' '.join([str(t), c(repr(self)), tag, (' %r' % kargs if kargs else '')])
         log.debug(msg)
 
     @property
@@ -385,7 +385,6 @@ class ConsensusManager(object):
         assert isinstance(ar, RoundManager)
         if self.active_round == ar:
             self.log('on alarm, matched', ts=self.chainservice.now)
-            self.active_round.timeout_time = None  # cancel alarm
             if not self.is_ready:
                 # defer alarm if not ready
                 self.log('not ready defering alarm', ts=self.chainservice.now)
@@ -408,7 +407,6 @@ class ConsensusManager(object):
         return self.chain.head_candidate.num_transactions() > 0
 
     def process(self):
-        h = self.height
         r = self._process()
         return r
 

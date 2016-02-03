@@ -1,6 +1,13 @@
 language: python
-sudo: false
+sudo: required
+services:
+  - docker
 env:
+  global:
+  - DOCKER_EMAIL=docker@hydrachain.com
+  - DOCKER_USERNAME=hydrachain
+  - secure: Rr+meswIU5zxFWscvMTfumD8Fj23lAaWIQuf2REo9NefTpOUvS3CFaZY/sTFZmUybV/IGSvRXZsQoYxYlrNCsTFqwQh5RXft+A9XjrzK8EPQPxugVROoRaKNrgrCKvfy/4mup2bvCz6xp0EmFILZteMTMoveI8FOJYdEmypHpwc9/HrgB6iGFcH8EB1Ny1kXKjHmubF3jnNtsTmxciFc2+ZuC4yVa7aAZU6DMWK72/tWN6qlR5sTY11nkcuWBI/ot4niAuSkWp4RYhXHPoVeewj+0gWNBWejzID6NWK6+tLUu917+xrmjKt30Whjva3+jsNiKVdBsNuDC9M7AXViBedmfzFaRUThotM9dgqVovG6RKW3Ybdqk4cQZldK3DYOF7uVuZ9CujOlf9zYIuGv6sUihd2j6jxLEgDqpC9yumZUBqAHUqegOUizybINNhpIhcQU83ynceaUARXsPdc6JFZziY9RsjNOFkRwRKo+O7o2OfvnA9XSkIWPF8hnt4hrXHdzuzLKqgbR6spiUczuEhosjf2tNk6KlSFk0+K1vx/lx0jd9GoCKdsO/MGnAmh5M0g2OFW1vaj1/td5tQh06qFiIFULlDfSSdDtH0rNUMTRVbiGDF6NzuECYHZ23s2zIMZAOpVWHlItWlG1faBbkKz9UV0P3lqv2bp5CAuAXqk=
+  matrix:
   - TOXENV=py27
 addons:
   apt:
@@ -10,7 +17,11 @@ install:
   - pip install tox
   - pip install coveralls
 script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_syncing.py
-after_success: coveralls
+after_success: 
+  - coveralls
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" || true'
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop} . || true'
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop} || true'
 deploy:
   provider: pypi
   user: ethereum_pypi_automated
@@ -21,3 +32,6 @@ deploy:
     repo: HydraChain/hydrachain
     branch: develop
   distributions: "sdist bdist_wheel"
+after_deploy:
+  - docker tag hydrachain/hydrachain:$TRAVIS_TAG hydrachain/hydrachain:latest
+  - docker push hydrachain/hydrachain:latest

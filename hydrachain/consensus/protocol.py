@@ -1,6 +1,5 @@
 import rlp
 import gevent
-import time
 from devp2p.protocol import BaseProtocol, SubProtocolError
 from ethereum.transactions import Transaction
 from hydrachain.consensus.base import BlockProposal, VotingInstruction, Vote, LockSet, Ready

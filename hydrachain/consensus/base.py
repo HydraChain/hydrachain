@@ -138,7 +138,8 @@ class Vote(Signed):
             self.__class__ = VoteNil
 
     def __repr__(self):
-        return '<%s(S:%s BH:%s)>' % (self.__class__.__name__, phx(self.sender), phx(self.blockhash))
+        return '<%s(S:%s BH:%s)>' % (self.__class__.__name__,
+                                     phx(self.sender), phx(self.blockhash))
 
     @property
     def hr(self):
@@ -237,7 +238,11 @@ class LockSet(RLPHashable):  # careful, is mutable!
 
     @property
     def hr(self):
-        assert len(self), 'no votes, can not determin height'
+        """compute (height,round)
+        We might have multiple rounds before we see consensus for a certain height.
+        If everything is good, round should always be 0.
+        """
+        assert len(self), 'no votes, can not determine height'
         h = set([(v.height, v.round) for v in self.votes])
         assert len(h) == 1, len(h)
         return h.pop()

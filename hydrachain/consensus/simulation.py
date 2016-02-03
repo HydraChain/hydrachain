@@ -13,7 +13,7 @@ from ethereum import slogging
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
 from hydrachain.consensus.base import Block
-from hydrachain.consensus.manager import RoundManager, ConsensusManager
+from hydrachain.consensus.manager import ConsensusManager
 from ethereum.utils import big_endian_to_int, sha3, privtoaddr
 import ethereum.keys
 import gevent
@@ -108,8 +108,8 @@ class SlowTransport(Transport):
 
 class PeerMock(object):
 
-    ul_bandwidth = 1 * 10**6  # bytes/s net bandwidth
-    dl_bandwidth = 1 * 10**6  # bytes/s net bandwidth
+    ul_bandwidth = 1 * 10 ** 6  # bytes/s net bandwidth
+    dl_bandwidth = 1 * 10 ** 6  # bytes/s net bandwidth
     base_latency = 0.05  # secs
     ingress_bytes = 0
     egress_bytes = 0
@@ -215,7 +215,7 @@ class AppMock(object):
         self.config['data_dir'] = tempfile.mkdtemp()
         self.config['hdc']['validators'] = validators
 
-        initial_alloc = dict((a, dict(wei=2**200)) for a in validators)
+        initial_alloc = dict((a, dict(wei=2 ** 200)) for a in validators)
         self.config['eth']['block']['GENESIS_INITIAL_ALLOC'] = initial_alloc
 
         self.simenv = simenv

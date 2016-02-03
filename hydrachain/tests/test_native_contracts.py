@@ -149,8 +149,8 @@ def test_nac_tester():
     assert 26 == nc.tester_call_method(state, sender, SampleNAC.bfunc, 13)
 
     # FIXME THIS IS STILL BROKEN
-    #assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc)
-    #assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc2)
+    # assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc)
+    # assert [1, 2] == nc.tester_call_method(state, sender, SampleNAC.ffunc2)
 
     assert 4, 4 == nc.tester_call_method(state, sender, SampleNAC.cfunc, 4)
     assert [4] == nc.tester_call_method(state, sender, SampleNAC.ccfunc, 4)
@@ -166,7 +166,7 @@ def test_nac_tester():
     else:
         assert False, 'must fail'
     try:
-        nc.tester_call_method(state, sender, SampleNAC.afunc, 2**15, 2)
+        nc.tester_call_method(state, sender, SampleNAC.afunc, 2 ** 15, 2)
     except tester.TransactionFailed:
         pass
     else:
@@ -230,7 +230,7 @@ def test_nac_instances():
     nc.registry.unregister(SampleNAC)
 
 
-## Events #########################
+# Events #########################
 
 class Shout(nc.ABIEvent):
     args = [dict(name='a', type='uint16', indexed=True),
@@ -258,7 +258,7 @@ def test_events():
     c0.afunc(1, 2)
 
 
-## json abi ##############################
+# json abi ##############################
 
 def test_jsonabi():
     print EventNAC.json_abi()
@@ -280,25 +280,25 @@ def test_typed_storage():
         td = dict()
         randomprefix = randomword(random.randint(1, 10))
         randomkey = randomword(random.randint(1, 50))
-        ts.setup(randomprefix,td.get,td.__setitem__)
+        ts.setup(randomprefix,td.get, td.__setitem__)
         if t == 'address':
-            address = utils.int_to_addr(random.randint(0,0xFFFFFFFF))
-            ts.set(randomkey,address,t)
-            assert ts.get(randomkey,t) == address
+            address = utils.int_to_addr(random.randint(0, 0xFFFFFFFF))
+            ts.set(randomkey,address, t)
+            assert ts.get(randomkey, t) == address
         elif t == 'string' or t == 'bytes' or t=='binary':
             word = randomword(10)
             ts.set(randomkey,word,t)
-            assert ts.get(randomkey,t) == word
+            assert ts.get(randomkey, t) == word
         elif 'uint' in t:
             size=int(t[4:])
-            v=random.randint(0,2**size-1)
+            v=random.randint(0, 2 ** size - 1)
             ts.set(randomkey,v,t)
             assert ts.get(randomkey,t) == v
         elif 'int' in t:
             size=int(t[3:])
-            v=random.randint(0,2**(size-2)-1)
-            ts.set(randomkey,v,t)
-            assert ts.get(randomkey,t) == v
+            v=random.randint(0, 2 ** (size - 2) - 1)
+            ts.set(randomkey, v, t)
+            assert ts.get(randomkey, t) == v
         else:
             pass
 
@@ -365,25 +365,25 @@ def test_typed_storage_contract():
 
             N = 10
             for i in range(1, N + 1):
-                v = i**2
+                v = i ** 2
                 k = bytes(i)
                 ctx.d[k] = v
                 assert ctx.d[k] == v
                 assert len(list(ctx.d.keys())) == i
-                assert list(ctx.d.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.d.values()) == [j**2 for j in range(1, i + 1)]
+                assert set(ctx.d.keys()) == set([bytes(j) for j in range(1, i + 1)])
+                assert set(ctx.d.values()) == set([j ** 2 for j in range(1, i + 1)])
 
             # iterable dict with strings
             N = 10
             for i in range(1, N + 1):
-                v = str(i**2)
+                v = str(i ** 2)
                 k = bytes(i)
                 ctx.e[k] = v
                 # log.DEV('kv', k=k, v=v)
                 assert ctx.e[k] == v, ctx.e[k]
                 assert len(list(ctx.e.keys())) == i
-                assert list(ctx.e.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.e.values()) == [str(j**2) for j in range(1, i + 1)]
+                assert set(ctx.e.keys()) == set([bytes(j) for j in range(1, i + 1)])
+                assert set(ctx.e.values()) == set([str(j ** 2) for j in range(1, i + 1)])
 
             print list(ctx.e.keys())
             print list(ctx.e.values())
@@ -393,7 +393,7 @@ def test_typed_storage_contract():
 
     nc.registry.register(TestTSC)
     s = tester.state()
-    r = s._send(tester.k0, TestTSC.address, 0)
+    s._send(tester.k0, TestTSC.address, 0)
     nc.registry.unregister(TestTSC)
 
 
@@ -475,10 +475,8 @@ def test_nested_typed_storage_dict():
     c = nc.List(nc.Dict('uint16'))
     d = nc.List('uint16')
 
-
     b.setup(b'b',_get,_set)
     d.setup(b'd',_get,_set)
-
 
     # nested dicts
 
@@ -572,12 +570,10 @@ def test_nested_typed_storage_iterable_dict():
     assert g['B'] == teststr2
     assert len(g) == 2
 
-
     k = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x17q'
     v = 2146209080
     d[k] = v
     assert len(d) == 1
-
 
     f['A'] = 1
     assert len(f) == 1
@@ -597,7 +593,6 @@ def test_nested_typed_storage_iterable_dict():
     for k in ['A', 'B', 'C']:
         for idx in range(3):
             e[k][idx] = 42 * (idx + 1)
-
 
     assert set(e.keys()) == set(['A', 'B', 'C'])
     assert len(e) == 3
@@ -694,7 +689,6 @@ def test_nested_typed_storage_struct():
 
     with pytest.raises(TypeError):
         assert g['imnotadict'] == 0
-
 
     h['abcde'].x[4891] = 875
     assert h['abcde'].x[4891] == 875
@@ -839,7 +833,7 @@ def test_owned():
             ctx.assert_owner()
             return 1
 
-    assert TestTSC.protected.is_constant == True
+    assert TestTSC.protected.is_constant is True
 
     state = tester.state()
     nc.registry.register(TestTSC)

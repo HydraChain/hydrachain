@@ -43,20 +43,23 @@ test_requirements = [
 
 # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
 # see: https://github.com/ethereum/pyethapp/wiki/Development:-Versions-and-Releases
-version = '0.1.9'
+version = '0.1.17'
 
 
 setup(
     name='hydrachain',
     version=version,
-    description="",
+    description="Permissioned Distributed Ledger based on Ethereum",
     long_description=readme + '\n\n' + history,
     author="HeikoHeiko",
     author_email='heiko@brainbot.com',
     url='https://github.com/HydraChain/hydrachain',
     packages=[
         'hydrachain',
-        'hydrachain.consensus'
+        'hydrachain.consensus',
+        'hydrachain.examples',
+        'hydrachain.examples.native',
+        'hydrachain.examples.native.fungible',
     ],
     include_package_data=True,
     license="MIT",

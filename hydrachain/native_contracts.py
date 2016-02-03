@@ -40,6 +40,8 @@ import ethereum.vm as vm
 import ethereum.abi as abi
 from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endian
 from ethereum import slogging
+from ethereum.transactions import Transaction
+
 slogging.configure(config_string=':debug')
 log = slogging.get_logger('nc')
 from copy import deepcopy
@@ -75,6 +77,7 @@ class Registry(object):
         return address.startswith(self.native_contract_instance_address_prefix)
 
     def address_to_native_contract_class(self, address):
+        "returns class._on_msg_unsafe, use x.im_self to get class"
         assert isinstance(address, bytes) and len(address) == 20
         assert self.is_instance_address(address)
         nca = self.native_contract_address_prefix + address[-4:]
@@ -459,6 +462,10 @@ class ABIEvent(object):
         return [a['type'] for a in cls.args]
 
     @classmethod
+    def arg_names(cls):
+        return [a['name'] for a in cls.args]
+
+    @classmethod
     def event_id(cls):
         return abi.event_id(cls.__name__, cls.arg_types())
 
@@ -494,13 +501,15 @@ class ABIEvent(object):
             return
         if address and address != log_.address:
             return
-        o = {}
+        # o = dict(address=log_.address)
+        o = dict()
         for i, t in enumerate(log_.topics[1:]):
             name = cls.args[i]['name']
             if cls.arg_types()[i] in ('string', 'bytes'):
-                assert t < 2**256  # FIXME
+                assert t < 2 ** 256, "error with {}, user bytes32".format(cls.args[i])
                 d = encode_int(t)
             else:
+                assert t < 2 ** 256
                 d = zpad(encode_int(t), 32)
             data = abi.decode_abi([cls.arg_types()[i]], d)[0]
             o[name] = data
@@ -544,9 +553,6 @@ def tester_nac(state, sender, address, value=0):
         setattr(cproxy, m.__func__.func_name, mk_method(m))
 
     return cproxy()
-
-
-from ethereum.transactions import Transaction
 
 
 def test_call(block, sender, to, data='', gasprice=0, value=0):
@@ -777,7 +783,7 @@ class IterableDict(Dict):
 
     def items(self):
         _len = self.get(b'__len__', value_type='uint32')
-        keys = (self.get(self._ckey(i), value_type='bytes') for i in range(_len))
+        keys = set(self.get(self._ckey(i), value_type='bytes') for i in range(_len))
         items = ((k, self.get(k)) for k in keys)
         valid = list((k, v) for k, v in items if v)
         log.DEV('in items', len=_len, keys=list(keys), valid=list(valid), items=list(items))
@@ -895,42 +901,8 @@ class TypedStorageContract(NativeContractBase):
                     return property(lambda s: skalar.get(), lambda s, v: skalar.set(v=v))
                 setattr(self.__class__, k, _mk_property(ts))
 
-# The NativeContract Class ###################
 
+# The NativeContract Class ###################
 
 class NativeContract(NativeABIContract, TypedStorageContract):
     pass
-
-
-"""
-gas counting and
-OOG exception
-
-call
-address.call
-
-    def init(): - executed upon contract creation, accepts no parameters
-    def shared(): - executed before running init and user functions
-    def code(): - executed before any user functions
-
-constant
-stop
-
-modifiers
-@nca.isowner
-@nca.constant
-"""
-
-
-# class AddressNAC(NativeABIContract):
-#     address = utils.int_to_addr(5000)
-
-#     def getit(ctx, returns='address[]'):
-#         print "GETIT CALLED"
-#         return ['\x00' * 20] * 3
-
-# registry.register(AddressNAC)
-
-# import json
-# print json.dumps(AddressNAC.json_abi(), indent=2)
-# print AddressNAC.address.encode('hex')
