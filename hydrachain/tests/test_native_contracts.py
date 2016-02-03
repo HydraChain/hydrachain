@@ -332,8 +332,8 @@ def test_typed_storage():
                 ctx.d[k] = v
                 assert ctx.d[k] == v
                 assert len(list(ctx.d.keys())) == i
-                assert list(ctx.d.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.d.values()) == [j ** 2 for j in range(1, i + 1)]
+                assert set(ctx.d.keys()) == set([bytes(j) for j in range(1, i + 1)])
+                assert set(ctx.d.values()) == set([j ** 2 for j in range(1, i + 1)])
 
             # iterable dict with strings
             N = 10
@@ -344,8 +344,8 @@ def test_typed_storage():
                 # log.DEV('kv', k=k, v=v)
                 assert ctx.e[k] == v, ctx.e[k]
                 assert len(list(ctx.e.keys())) == i
-                assert list(ctx.e.keys()) == [bytes(j) for j in range(1, i + 1)]
-                assert list(ctx.e.values()) == [str(j ** 2) for j in range(1, i + 1)]
+                assert set(ctx.e.keys()) == set([bytes(j) for j in range(1, i + 1)])
+                assert set(ctx.e.values()) == set([str(j ** 2) for j in range(1, i + 1)])
 
             print list(ctx.e.keys())
             print list(ctx.e.values())
