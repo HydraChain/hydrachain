@@ -1,3 +1,8 @@
+"""Example call:
+
+    >>> rm -rf /tmp/txperf && hydrachain -d /tmp/txperf runmultiple -v 3 & \
+            sleep 15 && time python hydrachain/tests/txperf.py && kill -9 %1
+"""
 from pyethapp.rpc_client import JSONRPCClient
 
 
