@@ -605,7 +605,6 @@ def test_nested_typed_storage_iterable_dict():
 
 def test_nested_typed_storage_invalid_types():
 
-    #the storage cannot be defined globally as the calls would interfere
     td = dict()
     def _get( k):
         if k not in td:
