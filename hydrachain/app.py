@@ -137,7 +137,7 @@ def runmultiple(ctx, num_validators, seed):
         apps.append(app)
         # hack to enable access to all apps in the console
         app.apps = apps
-    serve_until_stopped(apps)
+    serve_until_stopped(*apps)
 
 
 @pyethapp_app.app.command(help='run in a zero config default configuration')
