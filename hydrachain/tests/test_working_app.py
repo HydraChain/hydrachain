@@ -1,17 +1,12 @@
-import os
 import time
-import signal
-import syslog
 import pytest
 import random
 import gevent
-import traceback
 from threading import Thread
 from click.testing import CliRunner
 from hydrachain import app
 from pyethapp.rpc_client import JSONRPCClient
 from requests.exceptions import ConnectionError
-from ethereum.processblock import mk_contract_address
 
 
 solidity_code = """
@@ -27,9 +22,9 @@ contract SimpleStorage {
 """
 
 # Compiled with https://chriseth.github.io/browser-solidity/
-contract_interface = '[{"constant":false,"inputs":[{"name":"x","type":"uint256"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"name":"retVal","type":"uint256"}],"type":"function"}]'
+contract_interface = '[{"constant":false,"inputs":[{"name":"x","type":"uint256"}],"name":"set","outputs":[],"type":"function"},{"constant":true,"inputs":[],"name":"get","outputs":[{"name":"retVal","type":"uint256"}],"type":"function"}]'  # noqa
 
-contract_code = "606060405260978060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b11460415780636d4ce63c14605757603f565b005b605560048080359060200190919050506078565b005b606260048050506086565b6040518082815260200191505060405180910390f35b806000600050819055505b50565b600060006000505490506094565b9056"
+contract_code = "606060405260978060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360fe47b11460415780636d4ce63c14605757603f565b005b605560048080359060200190919050506078565b005b606260048050506086565b6040518082815260200191505060405180910390f35b806000600050819055505b50565b600060006000505490506094565b9056"  # noqa
 
 
 class TestDriverThread(Thread):
@@ -37,7 +32,7 @@ class TestDriverThread(Thread):
     def log(self, msg):
         msg = '{} {}'.format(time.time(), msg)
         self.test_output.append(msg)
-        #syslog.syslog(syslog.LOG_DEBUG, msg)
+        # syslog.syslog(syslog.LOG_DEBUG, msg)
 
     def wait_for_new_block(self, timeout=0):
         start_ts = time.time()
@@ -56,7 +51,7 @@ class TestDriverThread(Thread):
                 self.client = JSONRPCClient()
                 self.client.call('web3_clientVersion')
                 break
-            except ConnectionError, e:
+            except ConnectionError:
                 time.sleep(0.5)
 
     def run(self):
@@ -146,16 +141,16 @@ def test_example(gasprice):
     # Stop app after 15 seconds which is neccessary to complete the test
     def mock_serve_until_stopped(apps):
         gevent.sleep(15)
-        for app in apps:
-            app.stop()
+        for app_ in apps:
+            app_.stop()
 
     app.serve_until_stopped = mock_serve_until_stopped
     runner = CliRunner()
     with runner.isolated_filesystem():
         datadir = 'datadir{}'.format(gasprice)
         runner.invoke(app.pyethapp_app.app, ['-d', datadir, 'runmultiple'])
-        #runner.invoke(app.pyethapp_app.app, ['-d', datadir,
-        #'-l', ':debug', '--log-file', '/tmp/hydra.log', 'runmultiple'])
+        # runner.invoke(app.pyethapp_app.app, ['-d', datadir,
+        # '-l', ':debug', '--log-file', '/tmp/hydra.log', 'runmultiple'])
 
     assert t.test_successful, '\n'.join(t.test_output)
 
