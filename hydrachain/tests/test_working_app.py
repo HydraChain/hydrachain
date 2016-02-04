@@ -139,7 +139,7 @@ def test_example(gasprice):
     t.start()
 
     # Stop app after 15 seconds which is neccessary to complete the test
-    def mock_serve_until_stopped(apps):
+    def mock_serve_until_stopped(*apps):
         gevent.sleep(15)
         for app_ in apps:
             app_.stop()
