@@ -115,7 +115,7 @@ def test_fungible_template():
     r = fungible_as_creator.get_creator()
     assert r == creator_address
     r = fungible_as_creator.get_accounts()
-    assert r == [creator_address, alice_address, bob_address]
+    assert set(r) == set([creator_address, alice_address, bob_address])
 
     print logs
     while logs and logs.pop():
