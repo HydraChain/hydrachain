@@ -106,6 +106,7 @@ See the [Dockerfile templates](https://github.com/HydraChain/hydrachain/tree/mas
 
 Status: Work in Progress
 ------------------------
+ - 16.01.2016 - v0.1.10 - Automate docker image creation 
  - 27.11.2015 - v0.1.0 - Automate PyPI release process
  - 26.11.2015 - v0.0.7 - Various fixes; first PyPI release
  - 21.11.2015 - v0.0.6 - Various fixes
