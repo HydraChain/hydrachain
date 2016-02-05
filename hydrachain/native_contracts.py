@@ -44,6 +44,8 @@ from ethereum.transactions import Transaction
 
 slogging.configure(config_string=':debug')
 log = slogging.get_logger('nc')
+from copy import deepcopy
+
 
 
 class Registry(object):
@@ -619,6 +621,7 @@ def tester_create_native_contract_instance(state, sender, contract, value=0):
 class TypedStorage(object):
 
     _prefix = b''
+    _value_type = ''
     _set = None
     _get = None
 
@@ -667,6 +670,11 @@ class TypedStorage(object):
             # dummy call to mark storage
             value_type = 'uint16'
         # log.DEV('setting', cls=self.__class__, k=k, v=v)
+        if isinstance(self, Struct):
+            if k in self._nested_types.keys():
+                if isinstance(self._nested_types[k], TypedStorage):  # nested type
+                    # dummy call to mark storage
+                    value_type = 'uint16'
         v_ = self._db_encode_type(value_type, v)
         self._set(self._key(k), v_)
 
@@ -674,7 +682,11 @@ class TypedStorage(object):
         value_type = value_type or self._value_type
         if isinstance(value_type, TypedStorage):  # nested types
             # create new instance
-            ts = value_type.__class__(value_type._value_type)
+            if isinstance(value_type, Struct):
+                #use prototyping here in order to reproduce the complex internal structure
+                ts = deepcopy(value_type)
+            else:
+                ts = value_type.__class__(value_type._value_type)
 
             def _set(ts_k, v):
                 if not self._get(self._key(k)):
@@ -682,6 +694,9 @@ class TypedStorage(object):
                 self._set(ts_k, v)
             ts.setup(self._key(k), self._get, _set)
             return ts
+        if isinstance(self, Struct):
+            if k in self._nested_types.keys():
+                return self._nested_types[k]
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
 
@@ -780,6 +795,56 @@ class IterableDict(Dict):
         return sum(1 for k in self.keys())
 
 
+class Struct(TypedStorage):
+
+    _counter_prefix = '__counter_prefix:{}'
+    _nested_types = dict()
+
+    def __init__(self, **kwargs):
+        super(Struct,self).__init__('uint16')
+        self._nested_types = kwargs.copy()
+
+    def __getattribute__(self, k, *default):
+        try:
+            superattr = object.__getattribute__(self, k)
+            return superattr
+        except AttributeError:
+            pass
+
+        r = 0
+        # the method may be called before setup so check
+        if self._get:
+            r = self.get(k)
+        if r == 0:
+            if len(default) > 0:
+                return default[0]
+            raise AttributeError(k)
+        return r
+
+    def _ckey(self, idx):
+        assert isinstance(idx, int)
+        return self._counter_prefix.format(idx)
+
+    def __setattr__(self, k, v):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+
+        if k in dir(self):
+            # TODO: think of a protection for the injection hack here
+            return super(Struct, self).__setattr__(k, v)
+        if not self.get(k):
+            i = self.get(b'__len__', value_type='uint32')
+            self.set(self._ckey(i), k, value_type='bytes')
+            self.set(b'__len__', i + 1, value_type='uint32')
+        self.set(k, v)
+
+    def setup(self, prefix, getter, setter):
+        assert isinstance(prefix, bytes)
+        super(Struct,self).setup(prefix,getter,setter)
+        for k, ts in self._nested_types.iteritems():
+            ts.setup(self._key(k), getter, setter)
+
+
 class TypedStorageContract(NativeContractBase):
 
     """
@@ -826,7 +891,7 @@ class TypedStorageContract(NativeContractBase):
             assert k.startswith('_')
             k = k[1:]
             ts.setup(k, get_storage_data, set_storage_data)
-            if isinstance(ts, (List, Dict)):
+            if isinstance(ts, (List, Dict, Struct)):
                 setattr(self, k, ts)
             else:
                 assert isinstance(ts, Scalar)
