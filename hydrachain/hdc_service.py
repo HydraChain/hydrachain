@@ -140,6 +140,7 @@ class ChainService(eth_ChainService):
     transaction_queue_size = 1024
     processed_gas = 0
     processed_elapsed = 0
+    min_block_time = 1.  # time we try to wait for more transactions after the first
 
     def __init__(self, app):
         self.config = app.config
@@ -240,14 +241,19 @@ class ChainService(eth_ChainService):
         gevent.spawn(_trigger)
 
     def setup_transaction_alarm(self, cb, *args):
-        log.debug('setting up alarm')
+        log.debug('setting up tx alarm')
 
         class Trigger(object):
 
             def __call__(me, blk):
                 self.on_new_head_candidate_cbs.remove(me)
                 log.debug('transaction alarm triggered')
-                cb(*args)
+
+                def do_trigger_delayed():
+                    gevent.sleep(seconds=self.min_block_time)
+                    log.debug('transaction alarm calling cbs')
+                    cb(*args)
+                gevent.spawn(do_trigger_delayed)
 
         self.on_new_head_candidate_cbs.append(Trigger())
 
