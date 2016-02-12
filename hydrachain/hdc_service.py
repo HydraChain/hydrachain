@@ -519,7 +519,7 @@ class ChainService(eth_ChainService):
             return
         if isinstance(obj, BlockProposal):
             assert obj.sender == obj.block.header.coinbase
-        log.debug('broadcasting', obj=obj)
+        log.debug('broadcasting', obj=obj, origin=origin)
         bcast = self.app.services.peermanager.broadcast
         bcast(HDCProtocol, fmap[type(obj)], args=(obj,),
               exclude_peers=[origin.peer] if origin else [])
