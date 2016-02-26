@@ -16,36 +16,16 @@ RUN cd /root &&\
     npm install &&\
     npm install -g pm2
 
-
-WORKDIR /
-RUN git clone https://github.com/ethereum/pyrlp
-WORKDIR /pyrlp
-RUN pip install -e .
-
-WORKDIR /
-RUN git clone https://github.com/ethereum/pydevp2p
-WORKDIR /pydevp2p
-RUN pip install -e .
-
-WORKDIR /
-RUN git clone https://github.com/ethereum/pyethereum
-WORKDIR /pyethereum
-RUN pip install -e .
-
-WORKDIR /
-RUN git clone https://github.com/ethereum/pyethapp
-WORKDIR /pyethapp
-RUN pip install -e .
-
+RUN pip install -U setuptools
+RUN pip install -U pip
 
 WORKDIR /
 RUN git clone https://github.com/HydraChain/hydrachain
+WORKDIR /hydrachain
 
+RUN python setup.py install
 
-RUN pip install -U setuptools
-# Pre-install hydrachain dependency
-RUN pip install c-secp256k1==0.0.8
-
+WORKDIR /
 
 ADD start.sh /root/start.sh
 ADD app.json /root/eth-net-intelligence-api/app.json
