@@ -666,15 +666,27 @@ class TypedStorage(object):
     def set(self, k=b'', v=None, value_type=None):
         assert v is not None
         value_type = value_type or self._value_type
-        if isinstance(value_type, TypedStorage):  # nested type
-            # dummy call to mark storage
-            value_type = 'uint16'
-        # log.DEV('setting', cls=self.__class__, k=k, v=v)
+
         if isinstance(self, Struct):
             if k in self._nested_types.keys():
                 if isinstance(self._nested_types[k], TypedStorage):  # nested type
                     # dummy call to mark storage
                     value_type = 'uint16'
+        if isinstance(value_type, Scalar):
+            ts = value_type.__class__(value_type._value_type)
+            # dummy call to mark storage
+            value_type = 'uint16'
+            def _set(ts_k, v):
+                if not self._get(self._key(k)):
+                    self.markstorage(k)
+                self._set(ts_k, v)
+            ts.setup(self._key(k), self._get, _set)
+            ts.set('Scalar',v);
+            return
+        if isinstance(value_type, TypedStorage):  # nested type
+            # dummy call to mark storage
+            value_type = 'uint16'
+        # log.DEV('setting', cls=self.__class__, k=k, v=v)
         v_ = self._db_encode_type(value_type, v)
         self._set(self._key(k), v_)
 
@@ -690,9 +702,11 @@ class TypedStorage(object):
 
             def _set(ts_k, v):
                 if not self._get(self._key(k)):
-                    self[k] = 1  # set dummy to indicate, that there is an object
+                    self.markstorage(k)
                 self._set(ts_k, v)
             ts.setup(self._key(k), self._get, _set)
+            if isinstance(value_type, Scalar):
+                return ts.get('Scalar');
             return ts
         if isinstance(self, Struct):
             if k in self._nested_types.keys():
@@ -714,7 +728,18 @@ class List(TypedStorage):
     def __setitem__(self, i, v):
         i = int(i)
         assert isinstance(i, (int, long))
+        if isinstance(self._value_type, Scalar):
+            if type(v).__name__ not in self._value_type._value_type:
+                raise TypeError("Value must be of a type " + self._value_type._value_type
+                                + ". Provided value of a type " + type(v).__name__ + " instead.")
+        else:
+            if type(v).__name__ not in self._value_type:
+                raise TypeError("Value must be of a type " + self._value_type
+                                + ". Provided value of a type " + type(v).__name__ + " instead.")
         self.set(bytes(i), v)
+        self.updatelen(i, v)
+
+    def updatelen(self, i, v):
         if i >= len(self):
             self.set(b'__len__', i + 1, value_type='uint32')
         elif i+1 == len(self) and v is 0:
@@ -724,6 +749,12 @@ class List(TypedStorage):
                 if self[k]!=0:
                     self.set(b'__len__', k + 1, value_type='uint32')
                     break
+
+    def markstorage(self, i):
+        i = int(i)
+        assert isinstance(i, (int, long))
+        self.set(bytes(i), 1, 'uint16') # set dummy to indicate, that there is an object
+        self.updatelen(i, 1)
 
     def __len__(self):
         return self.get(b'__len__', value_type='uint32')
@@ -747,6 +778,10 @@ class Dict(List):
     def __setitem__(self, k, v):
         assert isinstance(k, bytes)
         self.set(k, v)
+
+    def markstorage(self, k):
+        assert isinstance(k, bytes)
+        self.set(k, 1, 'uint16') # set dummy to indicate, that there is an object
 
     def __contains__(self, k):
         raise NotImplementedError('unset keys return zero as a default')
@@ -773,11 +808,21 @@ class IterableDict(Dict):
     def __setitem__(self, k, v):
         assert isinstance(k, bytes)
         assert bytes(k) != bytes(0)
+        self.updatelen(k)
+        self.set(k, v)
+
+    def updatelen(self, k):
         if not self.get(k):
             i = self.get(b'__len__', value_type='uint32')
             self.set(self._ckey(i), k, value_type='bytes')
             self.set(b'__len__', i + 1, value_type='uint32')
-        self.set(k, v)
+
+    def markstorage(self, k):
+        assert isinstance(k, bytes)
+        assert bytes(k) != bytes(0)
+        self.updatelen(k)
+        self.set(k, 1, 'uint16') # set dummy to indicate, that there is an object
+
 
     def __contains__(self, idx):
         raise NotImplementedError()

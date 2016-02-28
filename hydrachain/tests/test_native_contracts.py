@@ -498,7 +498,7 @@ def test_nested_typed_storage_list():
     d = nc.List('uint16')
     l = nc.List(nc.List('uint16'))
     m = nc.List(nc.List('uint16'))
-    n = nc.List(nc.Scalar('address'))
+    n = nc.List(nc.Scalar('string'))
 
     c.setup(b'c', _get, _set)
     d.setup(b'd', _get, _set)
@@ -516,10 +516,10 @@ def test_nested_typed_storage_list():
     d[2] = 2
     assert d[2] == 2
     assert len(d) == 3
-    d[65535]=7
+    d[535]=7
     d[4]=8
-    assert len(d) == 65536
-    d[65535]=0
+    assert len(d) == 536
+    d[535]=0
     assert len(d) == 5
 
 
@@ -530,6 +530,7 @@ def test_nested_typed_storage_list():
     assert isinstance(la, nc.Dict)
     assert len(c) == 0
     la['test'] = 1
+    tmpvar = len(c)
     assert len(c) == 4
     assert c[3]['test'] == 1
     c[2]['test2'] = 9
@@ -539,8 +540,8 @@ def test_nested_typed_storage_list():
     m[5][6] = 9
     assert l[5][6] != m[5][6]
 
-    # n[4]='someaddress'
-    #assert n[4] == 'someaddress'
+    n[4]='someaddress'
+    assert n[4] == 'someaddress'
 
 
 def test_nested_typed_storage_iterable_dict():
@@ -576,8 +577,24 @@ def test_nested_typed_storage_iterable_dict():
     assert len(g) == 2
 
     k = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x17q'
-    v = 2146209080
-    d[k] = v
+    v1 = 2146209080
+    v2 = 86323145
+    d[k] = v1
+    assert len(d) == 1
+    assert d[k] == v1
+    d[k] = 0
+    dl = len(d)
+    assert len(d) == 0
+    d[k] = v2
+    assert len(d) == 1
+    assert d[k] == v2
+    d[k] = v1
+    d[k] = v2
+    d[k] = v1
+    d[k] = v2
+    d[k] = v2
+    d[k] = v1
+    assert d[k] == v1
     assert len(d) == 1
 
     f['A'] = 1
@@ -645,14 +662,14 @@ def test_nested_typed_storage_invalid_types():
     with pytest.raises(ValueError):
         a['one']['two'] = 63432
 
-    with pytest.raises(abi.ValueOutOfBounds):
+    with pytest.raises(TypeError):
         a['one'][2] = 'somestr'
 
-    # with pytest.raises(AttributeError):
-    #    k[1] = 2 # should raise an error but doesn't yet
+    with pytest.raises(NotImplementedError):
+        k[1] = 2
 
-    # with pytest.raises(AttributeError):
-    #    c[1] = 2 # should raise an error but doesn't yet
+    with pytest.raises(NotImplementedError):
+        c[1] = 2
 
 
 def test_nested_typed_storage_struct():
