@@ -1,7 +1,7 @@
 language: python
 sudo: required
 services:
-  - docker
+- docker
 env:
   global:
   - DOCKER_EMAIL=docker@hydrachain.com
@@ -14,24 +14,30 @@ addons:
     packages:
     - libgmp3-dev
 install:
-  - pip install tox
-  - pip install coveralls
+- pip install tox
+- pip install coveralls
 script: tox -- --ignore hydrachain/tests/test_sim_failures.py --ignore hydrachain/tests/test_sim_syncing.py
-after_success: 
-  - coveralls
-  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" || true'
-  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop} . || true'
-  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop} || true'
+after_success:
+- coveralls
+- '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME"
+  -p="$DOCKER_PASSWORD" || true'
+- '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker build -t hydrachain/hydrachain:${TRAVIS_TAG:-develop}
+  . || true'
+- '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker push hydrachain/hydrachain:${TRAVIS_TAG:-develop}
+  || true'
 deploy:
   provider: pypi
   user: ethereum_pypi_automated
   password:
-    secure: "vO6kAkkpdqQz2+Le7aowcIkYHyvQzuNaL35c8ciHzmT2VdeGeCsDBGyJ8RYqITQruwfVzUsKsNjfCXBTcYan3e1vPpG9KKrkxB/Zy6KcNJmd+SL9n2tB6TVFr1ojxnRJgIzFBxbA1FnyY0aodwnMW2bJBlKxFIKJiKVjK6GGDl11wrMsudFFnvs3LkrPO9tr1plmN1xvVTNLzy0UmHjx6lmtjtZ/HMbx635WnFj5NnzdeMK07XD59HEuOYVvQ7BQua2cuCevFbXmSAxHJsDPZuhzYHkEfj+jPhKbS1MyTqD5W72ex2oPRmPlvvnOn01750IkSFSyO0lnZIv1wJuZ3+Y+49Q5XrFBAsuC4bqk1uOVL5hU37b2oDBIunJLQYEP1tn7TibVbv51iOolzx193tRR7KcbyU+pIqdP4a6rWDXT+PRada2JemX/Bx4G5hn9dXc4SmLP0+t7lcYpe/fTLQCGYsLNBbJv7iJdTuOeySX8Dlq9GYBMGreilDwIp5T4eqT4mhc25ZaXRel2HdqQSzie8SM88Sempn1V3uQkvQSUZ/PcwDwrG8wLK37BubaW0qVAZ5Zfkv1Q+pnVd7OkTEU+GgdOST6H3WGKVSO0fs/vLFYhQN0273IqM3Uuh3+s5h/sbGWfXqPMS8lu6febpglBCAxvkgKjwQ0in2S3Fo8="
+    secure: vO6kAkkpdqQz2+Le7aowcIkYHyvQzuNaL35c8ciHzmT2VdeGeCsDBGyJ8RYqITQruwfVzUsKsNjfCXBTcYan3e1vPpG9KKrkxB/Zy6KcNJmd+SL9n2tB6TVFr1ojxnRJgIzFBxbA1FnyY0aodwnMW2bJBlKxFIKJiKVjK6GGDl11wrMsudFFnvs3LkrPO9tr1plmN1xvVTNLzy0UmHjx6lmtjtZ/HMbx635WnFj5NnzdeMK07XD59HEuOYVvQ7BQua2cuCevFbXmSAxHJsDPZuhzYHkEfj+jPhKbS1MyTqD5W72ex2oPRmPlvvnOn01750IkSFSyO0lnZIv1wJuZ3+Y+49Q5XrFBAsuC4bqk1uOVL5hU37b2oDBIunJLQYEP1tn7TibVbv51iOolzx193tRR7KcbyU+pIqdP4a6rWDXT+PRada2JemX/Bx4G5hn9dXc4SmLP0+t7lcYpe/fTLQCGYsLNBbJv7iJdTuOeySX8Dlq9GYBMGreilDwIp5T4eqT4mhc25ZaXRel2HdqQSzie8SM88Sempn1V3uQkvQSUZ/PcwDwrG8wLK37BubaW0qVAZ5Zfkv1Q+pnVd7OkTEU+GgdOST6H3WGKVSO0fs/vLFYhQN0273IqM3Uuh3+s5h/sbGWfXqPMS8lu6febpglBCAxvkgKjwQ0in2S3Fo8=
   on:
     tags: true
     repo: HydraChain/hydrachain
     branch: develop
-  distributions: "sdist bdist_wheel"
+  distributions: sdist bdist_wheel
 after_deploy:
-  - docker tag hydrachain/hydrachain:$TRAVIS_TAG hydrachain/hydrachain:latest
-  - docker push hydrachain/hydrachain:latest
+- docker tag hydrachain/hydrachain:$TRAVIS_TAG hydrachain/hydrachain:latest
+- docker push hydrachain/hydrachain:latest
+notifications:
+  slack:
+    secure: qJyYhNa9Ld427maaO5s2aVtiKYpQfzow0oGP56LGoJVkxOlLXbLzvPtGh/EuCSUsSYAcdMyo64LyNfjjt6UdgCroMnmGYF9i5d2CkJait61TqrL8wB6B8FFNUDfd1bpilArKuY19D6TmHYj1xRqxIq37zePS4GyAq2EanBRTtSiA4++66sUEw+8u79VEFfxDT82k0qZTNys1Ph9X/Ss6MSE7UljTkytzwhcNLWlR0z68O4jgFfhdwB9pJTFL1/80JMUlpvJpE5QhMIMgYEKhQDEAA9u+m8npmVothZVrQFJwcVMTvV3Rh8JPcfQ8IqMkzpo3zkXfL2zMX2cUkGpoFxsmF+jWtaZX+NooRC+ptcvnZJXz3mRpwK3VfwL7trPl0Y0xGVy8CtfxsdLDBYv8YMItBCiX+CrdHLIbQw1WFDODNGmRhrGZEjAy2ti5RiR4+98QdMmezf2rhHta5ttN9Ig1kRnrAsDT2/AyU4sWfLZdYFbrXwR41yP9yi9Q4R+jKk31Okr/mkFLNLRuz3UtDOlfwjVFw+D8tI0zioOybv9TYkk7TCg9Ply6sIZPG9T7x8iAos+B4iufqGoFiUfeJW1oeRb5pIeytMc27LSG1Jedlznu98ct0TjjMZwSdzx9tMXX4eXu6kVP7vkR+5G2O6HL9AqhEjA9Lm4W+pqX0LI=
