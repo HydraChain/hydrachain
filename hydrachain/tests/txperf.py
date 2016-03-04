@@ -3,9 +3,24 @@
     >>> NODES=3; rm -rf /tmp/txperf && hydrachain -d /tmp/txperf runmultiple \
             -v $NODES > /dev/null 2>&1 & sleep 15 && time python \
             hydrachain/tests/txperf.py && kill -9 %1
+
+additional sys.argv:
+    >>>  python .../txperf.py <num_clients> <host> <num_txs>
+
 """
-from pyethapp.rpc_client import JSONRPCClient
+
+from pyethapp.rpc_client import JSONRPCClient, HttpPostClientTransport
 import time
+
+
+class DummyClient(JSONRPCClient):
+
+    def __init__(self, host, port=4000, print_communication=True, privkey=None, sender=None):
+        self.transport = HttpPostClientTransport('http://' + host + ':{}'.format(port))
+        self.print_communication = print_communication
+        self.privkey = privkey
+        self._sender = sender
+        self.port = port
 
 
 def do_tx(client, coinbase):
@@ -20,10 +35,10 @@ def do_tx(client, coinbase):
     return r
 
 
-def main(num_clients, num_txs=1):
+def main(num_clients, host='127.0.0.1', num_txs=1):
     st = time.time()
     txs = set()
-    clients = [JSONRPCClient(4000 + i, print_communication=False) for i in range(num_clients)]
+    clients = [DummyClient(host, 4000 + i, print_communication=False) for i in range(num_clients)]
     coinbase = clients[0].coinbase
 
     for i in range(num_txs):
@@ -58,9 +73,16 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
         num_clients = int(sys.argv[1])
+        host = str(sys.argv[2])
+        num_txs = int(sys.argv[3])
     else:
         num_clients = 1
-    main(num_clients, 500)
+        host = '127.0.0.1'
+        num_txs = 500
+    print sys.argv
+    print 'Performing {} txs on host {} with {} local JSONRPC-Client(s)'.\
+        format(num_txs, host, num_clients)
+    main(num_clients, host, num_txs)
 
 
 """
@@ -71,5 +93,5 @@ With min_block_time = 0.5
 CPython: 17 tps
 PyPy: 49tps
 
-Not forwarding did not imporve performance!
+Not forwarding did not improve performance!
 """
