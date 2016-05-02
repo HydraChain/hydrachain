@@ -44,7 +44,7 @@ from ethereum import slogging
 from ethereum.transactions import Transaction
 from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endian
 
-
+slogging.configure(config_string=':debug')
 log = slogging.get_logger('nc')
 
 
@@ -676,12 +676,13 @@ class TypedStorage(object):
             ts = value_type.__class__(value_type._value_type)
             # dummy call to mark storage
             value_type = 'uint16'
+
             def _set(ts_k, v):
                 if not self._get(self._key(k)):
                     self.markstorage(k)
                 self._set(ts_k, v)
             ts.setup(self._key(k), self._get, _set)
-            ts.set('Scalar',v);
+            ts.set('Scalar', v)
             return
         if isinstance(value_type, TypedStorage):  # nested type
             # dummy call to mark storage
@@ -706,7 +707,7 @@ class TypedStorage(object):
                 self._set(ts_k, v)
             ts.setup(self._key(k), self._get, _set)
             if isinstance(value_type, Scalar):
-                return ts.get('Scalar');
+                return ts.get('Scalar')
             return ts
         if isinstance(self, Struct):
             if k in self._nested_types.keys():
@@ -730,12 +731,12 @@ class List(TypedStorage):
         assert isinstance(i, (int, long))
         if isinstance(self._value_type, Scalar):
             if type(v).__name__ not in self._value_type._value_type:
-                raise TypeError("Value must be of a type " + self._value_type._value_type
-                                + ". Provided value of a type " + type(v).__name__ + " instead.")
+                raise TypeError("Value must be of a type " + self._value_type._value_type +
+                                ". Provided value of a type " + type(v).__name__ + " instead.")
         else:
             if type(v).__name__ not in self._value_type:
-                raise TypeError("Value must be of a type " + self._value_type
-                                + ". Provided value of a type " + type(v).__name__ + " instead.")
+                raise TypeError("Value must be of a type " + self._value_type +
+                                ". Provided value of a type " + type(v).__name__ + " instead.")
         self.set(bytes(i), v)
         self.updatelen(i, v)
 
@@ -752,7 +753,7 @@ class List(TypedStorage):
     def markstorage(self, i):
         i = int(i)
         assert isinstance(i, (int, long))
-        self.set(bytes(i), 1, 'uint16') # set dummy to indicate, that there is an object
+        self.set(bytes(i), 1, 'uint16')  # set dummy to indicate, that there is an object
         self.updatelen(i, 1)
 
     def __len__(self):
@@ -780,7 +781,7 @@ class Dict(List):
 
     def markstorage(self, k):
         assert isinstance(k, bytes)
-        self.set(k, 1, 'uint16') # set dummy to indicate, that there is an object
+        self.set(k, 1, 'uint16')  # set dummy to indicate, that there is an object
 
     def __contains__(self, k):
         raise NotImplementedError('unset keys return zero as a default')
@@ -820,8 +821,7 @@ class IterableDict(Dict):
         assert isinstance(k, bytes)
         assert bytes(k) != bytes(0)
         self.updatelen(k)
-        self.set(k, 1, 'uint16') # set dummy to indicate, that there is an object
-
+        self.set(k, 1, 'uint16')  # set dummy to indicate, that there is an object
 
     def __contains__(self, idx):
         raise NotImplementedError()
