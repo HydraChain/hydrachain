@@ -12,6 +12,7 @@ import string
 
 from hydrachain import native_contracts as nc
 
+logging.NOTSET = logging.INFO
 
 """
 test registration
