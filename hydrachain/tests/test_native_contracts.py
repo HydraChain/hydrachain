@@ -508,21 +508,7 @@ def test_nested_typed_storage_list():
 
     # test list
     assert d[2] == 0
-    assert len(d) == 0
     d[2] = 1
-    assert len(d) == 3
-    d[2] = 0
-    assert len(d) == 0
-    d[2] = 2
-    assert d[2] == 2
-    assert len(d) == 3
-    d[535]=7
-    d[4]=8
-    assert len(d) == 536
-    d[535]=0
-    assert len(d) == 5
-
-
 
     # nested in lists
 

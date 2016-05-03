@@ -742,13 +742,6 @@ class List(TypedStorage):
     def updatelen(self, i, v):
         if i >= len(self):
             self.set(b'__len__', i + 1, value_type='uint32')
-        elif i+1 == len(self) and v is 0:
-            self.set(b'__len__', 0, value_type='uint32')
-            # there is no good way to recalculate this, so iterate for now, but think of a better solution
-            for k in reversed(range(i)):
-                if self[k]!=0:
-                    self.set(b'__len__', k + 1, value_type='uint32')
-                    break
 
     def markstorage(self, i):
         i = int(i)
