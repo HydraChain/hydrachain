@@ -747,12 +747,6 @@ class List(TypedStorage):
     def markstorage(self, i):
         i = int(i)
         assert isinstance(i, (int, long))
-        self.set(bytes(i), 1, 'uint16') # set dummy to indicate, that there is an object
-        self.updatelen(i, 1)
-
-    def markstorage(self, i):
-        i = int(i)
-        assert isinstance(i, (int, long))
         self.set(bytes(i), 1, 'uint16')  # set dummy to indicate, that there is an object
         self.updatelen(i, 1)
 

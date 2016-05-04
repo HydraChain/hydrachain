@@ -23,7 +23,7 @@ test creation, how to do it in tester?
 """
 
 
-class EchoContract(nc.NativeContractBase):r
+class EchoContract(nc.NativeContractBase):
     address = utils.int_to_addr(2000)
 
     def _safe_call(self):
