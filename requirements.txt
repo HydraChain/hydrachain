@@ -3,5 +3,4 @@ rlp>=0.4.3
 pyethapp>=1.0.11
 c_secp256k1==0.0.8
 simpy
-pytest==2.8.2
 serpent
