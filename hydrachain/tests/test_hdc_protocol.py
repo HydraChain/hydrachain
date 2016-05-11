@@ -1,6 +1,6 @@
 import rlp
 from ethereum import tester
-from ethereum import utils
+from ethereum import utils, slogging
 from devp2p.service import WiredService
 from devp2p.protocol import BaseProtocol
 from devp2p.app import BaseApp
@@ -9,7 +9,7 @@ from hydrachain.consensus.base import genesis_signing_lockset, VoteNil, VoteBloc
 from hydrachain.consensus.base import VotingInstruction, BlockProposal, TransientBlock
 
 
-tester.disable_logging()
+slogging.configure_logging(':info')
 
 
 class PeerMock(object):
