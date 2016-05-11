@@ -273,30 +273,30 @@ def test_typed_storage():
         return ''.join(random.choice(string.lowercase) for i in range(length))
 
     types = nc.TypedStorage._valid_types
-    random.seed(1) # a hardcoded seed to make the test deterministic
+    random.seed(1)  # a hardcoded seed to make the test deterministic
 
     for t in types:
         ts = nc.TypedStorage(t)
         td = dict()
         randomprefix = randomword(random.randint(1, 10))
         randomkey = randomword(random.randint(1, 50))
-        ts.setup(randomprefix,td.get, td.__setitem__)
+        ts.setup(randomprefix, td.get, td.__setitem__)
         if t == 'address':
             address = utils.int_to_addr(random.randint(0, 0xFFFFFFFF))
-            ts.set(randomkey,address, t)
+            ts.set(randomkey, address, t)
             assert ts.get(randomkey, t) == address
-        elif t == 'string' or t == 'bytes' or t=='binary':
+        elif t == 'string' or t == 'bytes' or t == 'binary':
             word = randomword(10)
-            ts.set(randomkey,word,t)
+            ts.set(randomkey, word, t)
             assert ts.get(randomkey, t) == word
         elif 'uint' in t:
-            size=int(t[4:])
-            v=random.randint(0, 2 ** size - 1)
-            ts.set(randomkey,v,t)
-            assert ts.get(randomkey,t) == v
+            size = int(t[4:])
+            v = random.randint(0, 2 ** size - 1)
+            ts.set(randomkey, v, t)
+            assert ts.get(randomkey, t) == v
         elif 'int' in t:
-            size=int(t[3:])
-            v=random.randint(0, 2 ** (size - 2) - 1)
+            size = int(t[3:])
+            v = random.randint(0, 2 ** (size - 2) - 1)
             ts.set(randomkey, v, t)
             assert ts.get(randomkey, t) == v
         else:
@@ -401,18 +401,20 @@ def test_nested_typed_storage_list_in_dict():
 
     # the storage cannot be defined globally as the calls would interfere
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     a = nc.Dict(nc.List('uint16'))
     b = nc.List('uint32')
 
-    a.setup(b'a',_get,_set)
-    b.setup(b'b',_get,_set)
+    a.setup(b'a', _get, _set)
+    b.setup(b'b', _get, _set)
 
     b.append(10)
 
@@ -440,8 +442,8 @@ def test_nested_typed_storage_list_in_dict():
     dl = len(l)
     for i in range(65500, 66000):
         l[i] = 1
-        l[i%100] = 2
-        l[i%300] = 3
+        l[i % 100] = 2
+        l[i % 300] = 3
         assert len(l) == i + 1
 
     # second key
@@ -456,19 +458,21 @@ def test_nested_typed_storage_list_in_dict():
 def test_nested_typed_storage_dict():
 
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     b = nc.Dict(nc.Dict('uint16'))
     c = nc.List(nc.Dict('uint16'))
     d = nc.List('uint16')
 
-    b.setup(b'b',_get,_set)
-    d.setup(b'd',_get,_set)
+    b.setup(b'b', _get, _set)
+    d.setup(b'd', _get, _set)
 
     # nested dicts
 
@@ -490,12 +494,14 @@ def test_nested_typed_storage_dict():
 def test_nested_typed_storage_list():
 
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     c = nc.List(nc.Dict('uint16'))
     d = nc.List('uint16')
@@ -503,11 +509,11 @@ def test_nested_typed_storage_list():
     m = nc.List(nc.List('uint16'))
     n = nc.List(nc.Scalar('address'))
 
-    c.setup(b'c',_get,_set)
-    d.setup(b'd',_get,_set)
-    l.setup(b'l',_get,_set)
-    m.setup(b'm',_get,_set)
-    n.setup(b'n',_get,_set)
+    c.setup(b'c', _get, _set)
+    d.setup(b'd', _get, _set)
+    l.setup(b'l', _get, _set)
+    m.setup(b'm', _get, _set)
+    n.setup(b'n', _get, _set)
 
     # test list
     assert d[2] == 0
@@ -528,28 +534,31 @@ def test_nested_typed_storage_list():
     m[5][6] = 9
     assert l[5][6] != m[5][6]
 
-    #n[4]='someaddress'
+    # n[4]='someaddress'
     #assert n[4] == 'someaddress'
+
 
 def test_nested_typed_storage_iterable_dict():
 
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     d = nc.IterableDict('uint256')
     e = nc.IterableDict(nc.List('uint16'))
     f = nc.IterableDict('uint16')
     g = nc.IterableDict('string')
 
-    d.setup(b'd',_get,_set)
-    e.setup(b'e',_get,_set)
-    f.setup(b'f',_get,_set)
-    g.setup(b'g',_get,_set)
+    d.setup(b'd', _get, _set)
+    e.setup(b'e', _get, _set)
+    f.setup(b'f', _get, _set)
+    g.setup(b'g', _get, _set)
 
     # test IterableDict
 
@@ -597,31 +606,33 @@ def test_nested_typed_storage_iterable_dict():
     dl = len(f)
 
     for i in range(100):
-        f[b'key'+str(i)] = 1
-        f[b'key'+str(i%10)] = 2
-        f[b'key'+str(i%50)] = 3
+        f[b'key' + str(i)] = 1
+        f[b'key' + str(i % 10)] = 2
+        f[b'key' + str(i % 50)] = 3
         assert len(f) == i + 1 + dl
 
 
 def test_nested_typed_storage_invalid_types():
 
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     a = nc.Dict(nc.List('uint16'))
     c = nc.List(nc.Dict('uint16'))
     k = nc.List(nc.List('address'))
 
-    a.setup(b'a',_get,_set)
-    c.setup(b'c',_get,_set)
-    k.setup(b'k',_get,_set)
+    a.setup(b'a', _get, _set)
+    c.setup(b'c', _get, _set)
+    k.setup(b'k', _get, _set)
 
-    #test invalid types
+    # test invalid types
 
     with pytest.raises(AttributeError):
         a.b == 81
@@ -632,10 +643,10 @@ def test_nested_typed_storage_invalid_types():
     with pytest.raises(abi.ValueOutOfBounds):
         a['one'][2] = 'somestr'
 
-    #with pytest.raises(AttributeError):
+    # with pytest.raises(AttributeError):
     #    k[1] = 2 # should raise an error but doesn't yet
 
-    #with pytest.raises(AttributeError):
+    # with pytest.raises(AttributeError):
     #    c[1] = 2 # should raise an error but doesn't yet
 
 
@@ -650,22 +661,24 @@ def test_nested_typed_storage_struct():
 
     # the storage cannot be defined globally as the calls would interfere
     td = dict()
-    def _get( k):
+
+    def _get(k):
         if k not in td:
             td[k] = 0
         return td[k]
-    def _set( k, v):
-        td[k]=v
+
+    def _set(k, v):
+        td[k] = v
 
     g = nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'))
     h = nc.IterableDict(nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address')))
     i = nc.List(nc.Struct(x=nc.Scalar('uint16'), y=nc.Dict('uint32'), z=nc.List('uint16')))
-    j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'),w=nc.Dict('uint16')))
+    j = nc.Struct(v=nc.Struct(x=nc.List('uint32'), y=nc.Scalar('address'), w=nc.Dict('uint16')))
 
-    g.setup(b'g',_get,_set)
-    h.setup(b'h',_get,_set)
-    i.setup(b'i',_get,_set)
-    j.setup(b'j',_get,_set)
+    g.setup(b'g', _get, _set)
+    h.setup(b'h', _get, _set)
+    i.setup(b'i', _get, _set)
+    j.setup(b'j', _get, _set)
 
     # test Struct
 
@@ -723,7 +736,6 @@ def test_nested_typed_storage_struct():
             ':\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00471734') in td
 
     nc.TypedStorage._key = original_key
-
 
 
 def test_nativeabicontract_with_storage():
