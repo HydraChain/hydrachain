@@ -35,10 +35,9 @@ install_requires_replacements = {}
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
 test_requirements = [
-    'ethereum-serpent>=1.8.1',
-    'docker-compose==1.5.0',
+    'docker-compose==1.7.0',
     'bumpversion==0.5.3',
-    'pytest==2.8.2'
+    'pytest==2.9.1'
 ]
 
 
