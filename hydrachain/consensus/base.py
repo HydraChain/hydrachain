@@ -1,14 +1,10 @@
 # Copyright (c) 2015 Heiko Hees
-import warnings
-try:
-    from c_secp256k1 import ecdsa_sign_raw, ecdsa_recover_raw
-except ImportError as e:
-    raise ImportError('no c_secp256k1!!!', e)
-    warnings.warn('Warning falling back to pybitcointools')
-    from bitcoin import ecdsa_raw_sign as ecdsa_sign_raw, ecdsa_raw_recover as ecdsa_recover_raw
+
 from collections import Counter
+
+from bitcoin.main import encode_privkey
 from ethereum.blocks import Block
-from ethereum.utils import big_endian_to_int
+from ethereum.utils import big_endian_to_int, zpad, int_to_32bytearray
 from bitcoin import encode_pubkey, N, P
 import rlp
 from rlp.sedes import big_endian_int, binary
@@ -16,6 +12,8 @@ from rlp.sedes import CountableList
 from rlp.utils import encode_hex
 from ethereum.blocks import BlockHeader
 from ethereum.transactions import Transaction
+from secp256k1 import PrivateKey, PublicKey, ALL_FLAGS
+
 from hydrachain.utils import sha3, phx
 
 
@@ -78,7 +76,19 @@ class Signed(RLPHashable):
         if privkey in (0, '', '\x00' * 32):
             raise InvalidSignature("Zero privkey cannot sign")
         rawhash = sha3(rlp.encode(self, self.__class__.exclude(['v', 'r', 's'])))
-        self.v, self.r, self.s = ecdsa_sign_raw(rawhash, privkey)
+
+        if len(privkey) == 64:
+            privkey = encode_privkey(privkey, 'bin')
+
+        pk = PrivateKey(privkey, raw=True)
+        signature = pk.ecdsa_recoverable_serialize(pk.ecdsa_sign_recoverable(rawhash, raw=True))
+
+        signature = signature[0] + chr(signature[1])
+
+        self.v = ord(signature[64]) + 27
+        self.r = big_endian_to_int(signature[0:32])
+        self.s = big_endian_to_int(signature[32:64])
+
         self._sender = None
         return self
 
@@ -95,8 +105,26 @@ class Signed(RLPHashable):
                 raise InvalidSignature()
             rlpdata = rlp.encode(self, self.__class__.exclude(['v', 'r', 's']))
             rawhash = sha3(rlpdata)
-            pub = ecdsa_recover_raw(rawhash, (self.v, self.r, self.s))
-            if pub is False or pub == (0, 0):
+            pk = PublicKey(flags=ALL_FLAGS)
+            try:
+                pk.public_key = pk.ecdsa_recover(
+                    rawhash,
+                    pk.ecdsa_recoverable_deserialize(
+                        zpad(
+                            "".join(chr(c) for c in int_to_32bytearray(self.r)),
+                            32
+                        ) + zpad(
+                            "".join(chr(c) for c in int_to_32bytearray(self.s)),
+                            32
+                        ),
+                        self.v - 27
+                    ),
+                    raw=True
+                )
+                pub = pk.serialize(compressed=False)
+            except Exception:
+                raise InvalidSignature()
+            if pub[1:] == "\x00" * 32:
                 raise InvalidSignature()
             pub = encode_pubkey(pub, 'bin')
             return sha3(pub[1:])[-20:]

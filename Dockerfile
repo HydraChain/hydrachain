@@ -11,7 +11,7 @@ ADD . hydrachain
 
 RUN pip install -U setuptools
 # Pre-install hydrachain dependency
-RUN pip install c-secp256k1==0.0.8
+RUN pip install secp256k1==0.12.1
 
 WORKDIR /hydrachain
 # Reset potentially dirty directory and remove after install
