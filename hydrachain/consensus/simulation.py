@@ -1,24 +1,27 @@
 # Copyright (c) 2015 Heiko Hees
-import time
-import simpy
-import random
 import copy
-from ethereum.db import EphemDB
-from collections import Counter
-from pyethapp.accounts import Account, AccountsService
-from hydrachain.hdc_service import ChainService
-from hydrachain.consensus.utils import num_colors, phx
+import random
 import tempfile
+import time
+from collections import Counter
+
+import ethereum.keys
+import gevent
+import simpy
 from ethereum import slogging
+from ethereum.db import EphemDB
+from ethereum.utils import big_endian_to_int, sha3, privtoaddr
+from pyethapp.accounts import Account, AccountsService
+
 from hydrachain import hdc_service
 from hydrachain.consensus import protocol as hdc_protocol
 from hydrachain.consensus.base import Block
 from hydrachain.consensus.manager import ConsensusManager
-from ethereum.utils import big_endian_to_int, sha3, privtoaddr
-import ethereum.keys
-import gevent
+from hydrachain.consensus.utils import num_colors, phx
+from hydrachain.hdc_service import ChainService
+
+
 log = slogging.get_logger('hdc.sim')
-slogging.configure(config_string=':debug')
 
 # stop on exception
 gevent.get_hub().SYSTEM_ERROR = BaseException
@@ -27,7 +30,7 @@ gevent.get_hub().SYSTEM_ERROR = BaseException
 ethereum.keys.PBKDF2_CONSTANTS['c'] = 100
 
 privkeys = [chr(i) * 32 for i in range(1, 11)]
-validators = [(p) for p in privkeys]
+validators = privkeys[:]
 
 
 empty = object()
@@ -399,6 +402,8 @@ def assert_heightdistance(r, max_distance=0):
 def main(num_nodes=10, sim_duration=10, timeout=0.5,
          base_latency=0.05, latency_sigma_factor=0.5,
          num_faulty_nodes=3, num_slow_nodes=0):
+
+    slogging.configure(config_string=':debug')
 
     orig_timeout = ConsensusManager.round_timeout
     ConsensusManager.round_timeout = timeout

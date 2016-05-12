@@ -33,19 +33,19 @@ Limitations:
 """
 import inspect
 import traceback
-import ethereum.specials as specials
-import ethereum.utils as utils
-import ethereum.processblock as processblock
-import ethereum.vm as vm
-import ethereum.abi as abi
-from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endian
-from ethereum import slogging
-from ethereum.transactions import Transaction
-
-slogging.configure(config_string=':debug')
-log = slogging.get_logger('nc')
 from copy import deepcopy
 
+import ethereum.abi as abi
+import ethereum.processblock as processblock
+import ethereum.specials as specials
+import ethereum.utils as utils
+import ethereum.vm as vm
+from ethereum import slogging
+from ethereum.transactions import Transaction
+from ethereum.utils import encode_int, zpad, big_endian_to_int, int_to_big_endian
+
+
+log = slogging.get_logger('nc')
 
 
 class Registry(object):
@@ -683,7 +683,7 @@ class TypedStorage(object):
         if isinstance(value_type, TypedStorage):  # nested types
             # create new instance
             if isinstance(value_type, Struct):
-                #use prototyping here in order to reproduce the complex internal structure
+                # use prototyping here in order to reproduce the complex internal structure
                 ts = deepcopy(value_type)
             else:
                 ts = value_type.__class__(value_type._value_type)
@@ -801,7 +801,7 @@ class Struct(TypedStorage):
     _nested_types = dict()
 
     def __init__(self, **kwargs):
-        super(Struct,self).__init__('uint16')
+        super(Struct, self).__init__('uint16')
         self._nested_types = kwargs.copy()
 
     def __getattribute__(self, k, *default):
@@ -840,7 +840,7 @@ class Struct(TypedStorage):
 
     def setup(self, prefix, getter, setter):
         assert isinstance(prefix, bytes)
-        super(Struct,self).setup(prefix,getter,setter)
+        super(Struct, self).setup(prefix, getter, setter)
         for k, ts in self._nested_types.iteritems():
             ts.setup(self._key(k), getter, setter)
 

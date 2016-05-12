@@ -1,14 +1,14 @@
+import random
+import string
+
+import pytest
+from ethereum import abi
 from ethereum import tester
 from ethereum import utils
-from hydrachain import native_contracts as nc
-from ethereum import abi, slogging
 from ethereum.utils import zpad
-import pytest
-import logging
-import random, string
 
-logging.NOTSET = logging.INFO
-slogging.configure_logging(':info')
+from hydrachain import native_contracts as nc
+
 
 """
 test registration
