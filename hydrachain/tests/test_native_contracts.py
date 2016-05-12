@@ -65,6 +65,7 @@ def test_native_contract_instances():
     nc.registry.unregister(EchoContract)
 
 
+# noinspection PyMethodParameters
 class SampleNAC(nc.NativeABIContract):
     address = utils.int_to_addr(2001)
 
@@ -159,24 +160,14 @@ def test_nac_tester():
     assert None is nc.tester_call_method(state, sender, SampleNAC.void_func, 3)
     assert None is nc.tester_call_method(state, sender, SampleNAC.special_vars)
     # values out of range must fail
-    try:
+    with pytest.raises(abi.EncodingError):
         nc.tester_call_method(state, sender, SampleNAC.bfunc, -1)
-    except abi.ValueOutOfBounds:
-        pass
-    else:
-        assert False, 'must fail'
-    try:
+
+    with pytest.raises(tester.TransactionFailed):
         nc.tester_call_method(state, sender, SampleNAC.afunc, 2 ** 15, 2)
-    except tester.TransactionFailed:
-        pass
-    else:
-        assert False, 'must fail'
-    try:
+
+    with pytest.raises(abi.EncodingError):
         nc.tester_call_method(state, sender, SampleNAC.afunc, [1], 2)
-    except abi.EncodingError:
-        pass
-    else:
-        assert False, 'must fail'
     nc.registry.unregister(SampleNAC)
 
 

@@ -12,8 +12,7 @@ import pytest
 from requests.exceptions import RequestException
 from tinyrpc.transports.http import HttpPostClientTransport
 
-
-pytest.importorskip('compose', minversion="1.5.0rc1")
+pytest.importorskip('compose', minversion="1.7.0")
 
 try:
     from compose.cli.command import get_project, get_client
@@ -32,7 +31,7 @@ SERVICE_SCALE = OrderedDict((
 
 
 try:
-    get_client().info()
+    get_client(os.environ).info()
 except RequestException:
     pytest.skip("Unable to connect to docker daemon. Skipping docker tests.")
 
