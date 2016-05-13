@@ -31,27 +31,28 @@ contract_code = "606060405260978060106000396000f360606040526000357c0100000000000
 
 class TestDriverThread(Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, verbose=None,
-                 gasprice=None):
+                 gasprice=None, evt=None, port=4000):
         super(TestDriverThread, self).__init__(group, target, name, args, kwargs, verbose)
         self.gasprice = gasprice
-        self.log = slogging.getLogger(__name__)
+        self.log = slogging.getLogger('test_working_app')
         self.test_successful = False
+        self.finished = False
+        self.evt = evt
+        self.port = port
 
-    def wait_for_new_block(self, timeout=0):
-        start_ts = time.time()
-        while True:
-            self.log.debug('wait_for_new_block')
-            block_hashes = self.client.call('eth_getFilterChanges', self.new_block_filter_id)
-            if block_hashes:
-                return block_hashes[0]
-            if timeout and time.time() - start_ts > timeout:
-                return None
-            time.sleep(0.5)
+    def wait_for_blocknumber(self, number, retry=20):
+        block = self.client.call('eth_getBlockByNumber', hex(number), False)
+        while block is None and retry > 0:
+            block = self.client.call('eth_getBlockByNumber', hex(number), False)
+            time.sleep(.5)
+            retry -= 1
+        assert retry > 0, "could not find block {}".format(number)
+        return block
 
     def connect_client(self):
         while True:
             try:
-                self.client = JSONRPCClient()
+                self.client = JSONRPCClient(port=self.port, print_communication=False)
                 self.client.call('web3_clientVersion')
                 break
             except ConnectionError:
@@ -64,13 +65,9 @@ class TestDriverThread(Thread):
             self.connect_client()
             self.log.debug('client connected')
 
-            # Set up filter to get notified when a new block arrives
-            self.new_block_filter_id = self.client.call('eth_newBlockFilter')
-            self.log.debug('eth_newBlockFilter OK')
-
             # Read initial blocks created by HydraChain on startup
-            while self.wait_for_new_block(timeout=3):
-                pass
+            self.wait_for_blocknumber(10)
+            self.log.debug("found block number 10")
 
             # Create a contract
             params = {'from': self.client.coinbase.encode('hex'),
@@ -81,14 +78,15 @@ class TestDriverThread(Thread):
             self.log.debug('eth_sendTransaction OK')
 
             # Wait for new block
-            recent_block_hash = self.wait_for_new_block()
-            self.log.debug('recent_block_hash {}'.format(recent_block_hash))
+            recent_block = self.wait_for_blocknumber(11)
 
-            recent_block = self.client.call('eth_getBlockByHash', recent_block_hash, True)
-            self.log.debug('eth_getBlockByHash OK {}'.format(recent_block))
+            self.log.debug('recent_block_hash {}'.format(recent_block))
 
-            assert recent_block['transactions'], 'no transactions in block'
-            tx = recent_block['transactions'][0]
+            block = self.client.call('eth_getBlockByHash', recent_block['hash'], True)
+            self.log.debug('eth_getBlockByHash OK {}'.format(block))
+
+            assert block['transactions'], 'no transactions in block'
+            tx = block['transactions'][0]
             assert tx['to'] == '0x'
             assert tx['gasPrice'] == params['gasPrice']
             assert len(tx['input']) > len('0x')
@@ -100,7 +98,7 @@ class TestDriverThread(Thread):
 
             assert receipt['transactionHash'] == tx['hash']
             assert receipt['blockHash'] == tx['blockHash']
-            assert receipt['blockHash'] == recent_block['hash']
+            assert receipt['blockHash'] == block['hash']
 
             # Get contract address from receipt
             contract_address = receipt['contractAddress']
@@ -117,8 +115,10 @@ class TestDriverThread(Thread):
             self.log.debug('contract.set({}) OK'.format(rand_value))
 
             # Wait for new block
-            recent_block_hash = self.wait_for_new_block()
-            recent_block = self.client.call('eth_getBlockByHash', recent_block_hash, True)
+            recent_block = self.wait_for_blocknumber(12)
+            # recent_block_hash = self.wait_for_new_block()
+
+            block = self.client.call('eth_getBlockByHash', recent_block['hash'], True)
 
             # Check that value was correctly set on contract
             res = contract.get()
@@ -131,34 +131,43 @@ class TestDriverThread(Thread):
             import traceback
             traceback.print_exc()
             self.log.exception("Exception in test thread")
+        finally:
+            self.evt.set()
+            self.finished = True
 
 
 @pytest.mark.parametrize('gasprice', (0, 1))
 def test_example(gasprice, caplog):
-    caplog.set_level(logging.DEBUG)
+    rand_port = random.randint(4000, 5000)
+    if caplog:
+        caplog.set_level(logging.DEBUG)
     # Start thread that will communicate to the app ran by CliRunner
-    t = TestDriverThread(gasprice=gasprice)
+    evt = gevent.event.Event()
+    t = TestDriverThread(gasprice=gasprice, evt=evt, port=rand_port)
     t.setDaemon(True)
     t.start()
 
-    # Stop app after 15 seconds which is neccessary to complete the test
+    # Stop app after testdriverthread is completed
     def mock_serve_until_stopped(*apps):
-        gevent.sleep(15)
+        evt.wait()
         for app_ in apps:
             app_.stop()
 
     app.serve_until_stopped = mock_serve_until_stopped
+
     runner = CliRunner()
     with runner.isolated_filesystem():
         datadir = 'datadir{}'.format(gasprice)
-        runner.invoke(app.pyethapp_app.app, ['-d', datadir, 'runmultiple'])
-        # runner.invoke(app.pyethapp_app.app, ['-d', datadir,
-        # '-l', ':debug', '--log-file', '/tmp/hydra.log', 'runmultiple'])
+        runner.invoke(app.pyethapp_app.app, ['-d', datadir,
+            '-l', ':WARNING,hdc.chainservice:INFO,test_working_app:DEBUG',
+            '-c', 'jsonrpc.listen_port={}'.format(rand_port), 'runmultiple'])
+        while not t.finished:
+            gevent.sleep(1)
 
     assert t.test_successful
 
 
 if __name__ == '__main__':
     slogging.configure(":debug")
-    test_example(0)
-    test_example(1)
+    test_example(1, None)
+    test_example(0, None)
