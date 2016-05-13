@@ -3,4 +3,4 @@ rlp>=0.4.3
 pyethapp>=1.2.1
 secp256k1==0.12.1
 simpy
-serpent==1.12
+ethereum-serpent>=2.0.2
