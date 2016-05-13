@@ -38,7 +38,6 @@ test_requirements = [
     'docker-compose==1.7.0',
     'bumpversion==0.5.3',
     'pytest==2.9.1'
-    'ethereum-serpent>=2.0.2'
 ]
 
 
