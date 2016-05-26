@@ -669,7 +669,9 @@ class TypedStorage(object):
 
         if isinstance(self, Struct):
             if k in self._nested_types.keys():
-                if isinstance(self._nested_types[k], TypedStorage):  # nested type
+                if isinstance(self._nested_types[k], Scalar):
+                    value_type = self._nested_types[k]
+                elif isinstance(self._nested_types[k], TypedStorage):  # nested type
                     # dummy call to mark storage
                     value_type = 'uint16'
         if isinstance(value_type, Scalar):
@@ -714,6 +716,9 @@ class TypedStorage(object):
                 return self._nested_types[k]
         r = self._db_decode_type(value_type, self._get(self._key(k)))
         return r
+
+    def markstorage(self, k):
+        pass
 
 
 class Scalar(TypedStorage):
@@ -864,6 +869,8 @@ class Struct(TypedStorage):
             if len(default) > 0:
                 return default[0]
             raise AttributeError(k)
+        if isinstance(r, Scalar):
+            return r.get('Scalar')
         return r
 
     def _ckey(self, idx):
