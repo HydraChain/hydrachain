@@ -1,33 +1,34 @@
-import signal
-import sys
-import click
-import gevent
 import copy
 import os
+import signal
+import sys
 
+import click
+import ethereum.slogging as slogging
+import gevent
+import pyethapp.app as pyethapp_app
+import pyethapp.config as konfig
 from click.exceptions import BadParameter
 from click.types import IntRange
-from gevent.event import Event
-from devp2p.service import BaseService
-from devp2p.peermanager import PeerManager
-from devp2p.discovery import NodeDiscovery
 from devp2p.app import BaseApp
+from devp2p.crypto import privtopub as privtopub_raw
+from devp2p.discovery import NodeDiscovery
+from devp2p.peermanager import PeerManager
+from devp2p.service import BaseService
+from devp2p.utils import host_port_pubkey_to_uri
+from ethereum.keys import privtoaddr, PBKDF2_CONSTANTS
+from ethereum.utils import denoms
+from gevent.event import Event
+from pyethapp.accounts import AccountsService, Account
+from pyethapp.accounts import mk_privkey
 from pyethapp.console_service import Console
 from pyethapp.db_service import DBService
 from pyethapp.jsonrpc import JSONRPCServer
-from pyethapp.accounts import AccountsService, Account
-import pyethapp.config as konfig
-import ethereum.slogging as slogging
-from ethereum.utils import denoms
-import pyethapp.app as pyethapp_app
-from pyethapp.accounts import mk_privkey
-from devp2p.crypto import privtopub as privtopub_raw
-from devp2p.utils import host_port_pubkey_to_uri
-from ethereum.keys import privtoaddr, PBKDF2_CONSTANTS
+from pygelf.handlers import GelfUdpHandler
 
-# local
-from hydrachain.hdc_service import ChainService
 from hydrachain import __version__
+from hydrachain.hdc_service import ChainService
+
 
 log = slogging.get_logger('app')
 
