@@ -24,7 +24,6 @@ from pyethapp.accounts import mk_privkey
 from pyethapp.console_service import Console
 from pyethapp.db_service import DBService
 from pyethapp.jsonrpc import JSONRPCServer
-from pygelf.handlers import GelfUdpHandler
 
 from hydrachain import __version__
 from hydrachain.hdc_service import ChainService
